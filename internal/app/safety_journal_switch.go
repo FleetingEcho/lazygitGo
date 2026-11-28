@@ -28,7 +28,7 @@ func (a *app) safetyJournalSetting(c *ui.Context) {
 			a.setSafetyJournal(enabled)
 			c.Invalidate()
 		}
-		ui.Text(c, tr("Actions run faster while it is off, but stash, discard, checkout, merge and similar actions are not saved and cannot be undone. Rebase, reset and patch edits still keep a recovery point.")).
+		ui.Text(c, tr("Checkout, merge, revert, branch changes and similar actions run faster while it is off, but they are not saved and cannot be undone. Everything on the Changes page (stage, discard, stash, commit) and rebase, reset and patch edits always keep a recovery point.")).
 			TextColor(theme.TextMuted).FontSize(theme.FontSize - 1).MaxWidth(480)
 	})
 }
@@ -49,6 +49,37 @@ func (a *app) safetyJournalToggle(c *ui.Context) {
 	})
 }
 
+// safetyJournalHeaderButton is the Changes header's switch for the journal. It
+// shows the state at a glance (filled while on) and, on hover, says what the
+// journal does and what it costs, so the choice is an informed one.
+func (a *app) safetyJournalHeaderButton(c *ui.Context) {
+	theme := c.Theme()
+	enabled := a.safetyJournalEnabled()
+	button := ui.ButtonBase(c).Padding(5).Radius(theme.Radius)
+	button.Label(tr("Safety journal")).Checked(enabled)
+	color := theme.TextMuted
+	if enabled {
+		color = theme.Accent
+		button.Background(theme.Accent.Alpha(0.14))
+	} else if button.Hovered() {
+		button.Background(theme.SurfaceHover)
+	}
+	button.Children(func() {
+		ui.Icon(c, softResetIcon).FontSize(15).TextColor(color)
+	})
+	title := tr("Safety journal is off")
+	body := tr("Stage, discard, stash and commit on this page can always be undone with Ctrl+Z. With this off, checkout, merge, revert and branch changes are not backed up, so they cannot be undone. They run a little faster. Click to turn it on.")
+	if enabled {
+		title = tr("Safety journal is on")
+		body = tr("Stage, discard, stash and commit on this page can always be undone with Ctrl+Z. With this on, checkout, merge, revert and branch changes are also backed up first, which costs a little time on each of them. Click to turn it off.")
+	}
+	richTooltip(c, button, richTip{Title: title, Body: body})
+	if button.Clicked() {
+		a.setSafetyJournal(!enabled)
+		c.Invalidate()
+	}
+}
+
 // safetyJournalOffNotice says plainly that nothing is being backed up, with a
 // button to turn the journal back on.
 func (a *app) safetyJournalOffNotice(c *ui.Context) {
@@ -56,7 +87,7 @@ func (a *app) safetyJournalOffNotice(c *ui.Context) {
 	ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(10).Padding(9, 12).
 		Background(theme.Warning.Alpha(0.12)).Border(1, theme.Warning.Alpha(0.45)).Radius(theme.Radius).Children(func() {
 		ui.Icon(c, softResetIcon).FontSize(15).TextColor(theme.Warning)
-		ui.Text(c, tr("The safety journal is off. New actions are not backed up and cannot be undone.")).
+		ui.Text(c, tr("The safety journal is off. Checkout, merge and similar actions are not backed up and cannot be undone. Changes-page actions still can.")).
 			FontSize(theme.FontSize - 1).Grow(1).MinWidth(0)
 		if compactTextButton(ui.Button(c, tr("Turn on"))).Label(tr("Turn the safety journal on")).Clicked() {
 			a.setSafetyJournal(true)

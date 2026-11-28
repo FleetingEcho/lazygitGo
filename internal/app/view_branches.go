@@ -368,7 +368,7 @@ func (a *app) branchRowMenu(m *ui.Menu, row ui.ListRow, services ui.Services) {
 		}
 	}
 	if !branch.Head {
-		if m.Item(tr("Checkout")).Shortcut(0, ui.KeySpace).Disabled(a.actionBusy).Chosen() {
+		if m.Item(tr("Checkout")).Shortcut(a.menuKey("Branches", 0, ui.KeySpace)).Disabled(a.actionBusy).Chosen() {
 			a.selectBranchRow(row.Index)
 			a.checkoutBranch(branch.Name)
 		}
@@ -376,7 +376,7 @@ func (a *app) branchRowMenu(m *ui.Menu, row ui.ListRow, services ui.Services) {
 			a.selectBranchRow(row.Index)
 			a.confirmForceCheckoutBranch(branch)
 		}
-		if m.Item(tr("Merge into current")).Shortcut(ui.Shift, ui.KeyM).Disabled(a.actionBusy).Chosen() {
+		if m.Item(tr("Merge into current")).Shortcut(a.menuKey("Branches", ui.Shift, ui.KeyM)).Disabled(a.actionBusy).Chosen() {
 			a.selectBranchRow(row.Index)
 			a.confirmMergeBranch(branch)
 		}
@@ -395,7 +395,7 @@ func (a *app) branchRowMenu(m *ui.Menu, row ui.ListRow, services ui.Services) {
 			a.selectBranchRow(row.Index)
 			a.beginFastForwardBranch(branch)
 		}
-		if m.Item(tr("Unset upstream")).Shortcut(0, ui.KeyU).Disabled(a.actionBusy).Chosen() {
+		if m.Item(tr("Unset upstream")).Shortcut(a.menuKey("Branches", 0, ui.KeyU)).Disabled(a.actionBusy).Chosen() {
 			a.selectBranchRow(row.Index)
 			a.beginUnsetUpstream(branch)
 		}
@@ -416,7 +416,7 @@ func (a *app) branchRowMenu(m *ui.Menu, row ui.ListRow, services ui.Services) {
 	}
 	if !branch.Head {
 		m.Separator()
-		if m.Item(tr("Delete branch")).Shortcut(0, ui.KeyD).Disabled(a.actionBusy).Chosen() {
+		if m.Item(tr("Delete branch")).Shortcut(a.menuKey("Branches", 0, ui.KeyD)).Disabled(a.actionBusy).Chosen() {
 			a.selectBranchRow(row.Index)
 			a.confirmDeleteBranch(branch)
 		}

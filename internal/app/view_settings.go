@@ -224,13 +224,17 @@ func (a *app) settingsModal(c *ui.Context) {
 			// Help belongs to the workspace underneath Settings. Opening it here
 			// closes Settings first so two modal overlays never compete for input.
 			if a.confirm == nil && !a.settings.DisableShortcuts && !c.FocusTakesText() && a.code.shortcutRecording == "" {
-				if a.onOverlayShortcut(back, ui.Shift, ui.KeySlash, shortcut("settings/modal-current-shortcuts", "?", tr("Show shortcuts for the current page")), nil) {
-					a.closeSettings()
-					a.openCurrentKeybindings()
+				for _, b := range a.keysOf("global/shortcuts-page") {
+					if a.onOverlayShortcut(back, b.mods, b.key, shortcut("settings/modal-current-shortcuts", boundKeyLabel(b), tr("Show shortcuts for the current page")), nil) {
+						a.closeSettings()
+						a.openCurrentKeybindings()
+					}
 				}
-				if a.onOverlayShortcut(back, 0, ui.KeyF1, shortcut("settings/modal-all-shortcuts", "F1", tr("Open the complete shortcut list")), nil) {
-					a.closeSettings()
-					a.openKeybindings()
+				for _, b := range a.keysOf("global/shortcuts-all") {
+					if a.onOverlayShortcut(back, b.mods, b.key, shortcut("settings/modal-all-shortcuts", boundKeyLabel(b), tr("Open the complete shortcut list")), nil) {
+						a.closeSettings()
+						a.openKeybindings()
+					}
 				}
 			}
 			// Confirmation and host-key prompts are child overlays. While either

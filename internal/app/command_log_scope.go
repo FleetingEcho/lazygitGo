@@ -174,6 +174,11 @@ func commandLogMatchesFilters(entry repository.CommandEntry, origin repository.C
 	if entry.Origin != origin {
 		return false
 	}
+	// The keys pressed have a section of their own; Your commands keeps the
+	// commands the user ran, unless the source filter asks for the keys.
+	if source == "" && origin == repository.CommandOriginUser && commandLogEntrySource(entry) == "keyboard" {
+		return false
+	}
 	if query != "" && !strings.Contains(strings.ToLower(commandLogEntrySearchText(entry)), strings.ToLower(query)) {
 		return false
 	}
@@ -199,10 +204,14 @@ func (a *app) commandLogVisibleEntries() []repository.CommandEntry {
 	if a.commandLogUser {
 		origin = repository.CommandOriginUser
 	}
+	source := a.commandLogSource
+	if a.commandLogKeys {
+		source = "keyboard"
+	}
 	visible := make([]repository.CommandEntry, 0, len(entries))
 	now := a.commandLogTime()
 	for _, entry := range entries {
-		if commandLogMatchesFilters(entry, origin, query, a.commandLogStatus, a.commandLogSource, a.commandLogRange, now) {
+		if commandLogMatchesFilters(entry, origin, query, a.commandLogStatus, source, a.commandLogRange, now) {
 			visible = append(visible, entry)
 		}
 	}
@@ -212,23 +221,31 @@ func (a *app) commandLogVisibleEntries() []repository.CommandEntry {
 // commandLogTools presents independent sections and the search field rather
 // than hiding custom commands in a single undifferentiated Git stream.
 func (a *app) commandLogTools(c *ui.Context) {
-	user, git := 0, 0
+	user, git, keys := 0, 0, 0
 	for _, entry := range a.commandLogEntries() {
-		if entry.Origin == repository.CommandOriginUser {
-			user++
-		} else {
+		switch {
+		case entry.Origin != repository.CommandOriginUser:
 			git++
+		case commandLogEntrySource(entry) == "keyboard":
+			keys++
+		default:
+			user++
 		}
 	}
 	section := 0
 	if a.commandLogUser {
 		section = 1
 	}
+	if a.commandLogKeys {
+		section = 2
+	}
 	tabs := ui.Tabs(c, &section,
 		fmt.Sprintf("%s (%d)", tr("Background Git commands"), git),
-		fmt.Sprintf("%s (%d)", tr("Your commands"), user))
+		fmt.Sprintf("%s (%d)", tr("Your commands"), user),
+		fmt.Sprintf("%s (%d)", tr("Shortcuts"), keys))
 	if tabs.Changed() {
-		a.commandLogUser = section == 1
+		a.commandLogUser = section >= 1
+		a.commandLogKeys = section == 2
 		a.commandLogSource = ""
 		a.resetCommandLogPaging()
 	}
@@ -269,7 +286,9 @@ func (a *app) commandLogTools(c *ui.Context) {
 		a.commandLogFilterSelect(c, "Status filter", a.commandLogStatus, commandLogStatusLabel(a.commandLogStatus), statusOptions, func(value string) {
 			a.commandLogStatus = value
 		})
-		a.commandLogFilterSelect(c, "Source filter", a.commandLogSource, commandLogSourceLabel(a.commandLogSource), sourceOptions, a.selectCommandLogSource)
+		if !a.commandLogKeys {
+			a.commandLogFilterSelect(c, "Source filter", a.commandLogSource, commandLogSourceLabel(a.commandLogSource), sourceOptions, a.selectCommandLogSource)
+		}
 		a.commandLogFilterSelect(c, "Time range filter", a.commandLogRange, commandLogTimeRangeLabel(a.commandLogRange), timeOptions, func(value string) {
 			a.commandLogRange = value
 		})
@@ -397,4 +416,11 @@ func commandLogHighlighted(c *ui.Context, text, query string, color ui.Color) ui
 		spans = append(spans, span)
 	}
 	return ui.RichText(c, spans...).FontSize(theme.FontSize - 1)
+}
+
+// selectCommandLogSectionOf opens the section a record belongs to: background
+// Git, the commands the user ran, or the keys pressed.
+func (a *app) selectCommandLogSectionOf(entry repository.CommandEntry) {
+	a.commandLogUser = entry.Origin == repository.CommandOriginUser
+	a.commandLogKeys = a.commandLogUser && commandLogEntrySource(entry) == "keyboard"
 }

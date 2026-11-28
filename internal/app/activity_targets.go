@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/FleetingEcho/lazygitGo/internal/repository"
 	"github.com/FleetingEcho/lazygitGo/internal/transfer"
 )
 
@@ -90,7 +89,7 @@ func (a *app) openActivityCommand(value string) {
 			if entry.ID() != id {
 				continue
 			}
-			a.commandLogUser = entry.Origin == repository.CommandOriginUser
+			a.selectCommandLogSectionOf(entry)
 			target := commandLogFailureTarget{log: a.commandLog, id: id}
 			a.commandLogReveal = &target
 			return

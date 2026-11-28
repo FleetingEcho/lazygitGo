@@ -660,7 +660,11 @@ func (a *app) conflictStageSelector(c *ui.Context) {
 			} else {
 				button = ui.Button(c, label)
 			}
-			if compactTextButton(button).Label(label).Tooltip(tr(conflictStageTooltip(tab))).Clicked() {
+			sized := compactTextButton(button)
+			if a.smallToolbarActions {
+				sized = smallTextButton(button)
+			}
+			if sized.Label(label).Tooltip(tr(conflictStageTooltip(tab))).Clicked() {
 				a.conflictStageTab = tab
 				c.Invalidate()
 			}

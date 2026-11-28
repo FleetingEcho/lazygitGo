@@ -261,3 +261,15 @@ func TestVisibleCommandLogRequestsRepaintForNewCommands(t *testing.T) {
 		t.Fatalf("closed log was repainted unnecessarily: %d", got)
 	}
 }
+
+// openShortcutLogForTest opens the command log on its Shortcuts section, where
+// every key press that ran an action is recorded.
+func openShortcutLogForTest(t *testing.T, a *app, tester *ui.Tester) {
+	t.Helper()
+	a.openCommandLog()
+	tester.Frame()
+	if err := tester.Click(commandLogTabTitle(tester, "Shortcuts")); err != nil {
+		t.Fatalf("open the Shortcuts section: %v", err)
+	}
+	tester.Frame()
+}

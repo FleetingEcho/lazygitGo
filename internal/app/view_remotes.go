@@ -324,38 +324,38 @@ func (a *app) copySelectedRemoteBranch(services ui.Services) {
 // remoteBranchRowMenu keeps every action on the branch named by its filtered
 // row. Selecting that row first also makes its detail controls agree.
 func (a *app) remoteBranchRowMenu(m *ui.Menu, row ui.ListRow, services ui.Services, remote repository.Remote, branch repository.RemoteBranch) {
-	if m.Item(tr("Checkout as local branch")).Shortcut(0, ui.KeySpace).Disabled(a.actionBusy).Chosen() {
+	if m.Item(tr("Checkout as local branch")).Shortcut(a.menuKey("Remote branches", 0, ui.KeySpace)).Disabled(a.actionBusy).Chosen() {
 		a.selectRemoteBranchRow(row.Index)
 		a.openRemoteBranchCheckout(remote, branch)
 	}
-	if m.Item(tr("Checkout detached")).Shortcut(ui.Shift, ui.KeySpace).Disabled(a.actionBusy).Chosen() {
+	if m.Item(tr("Checkout detached")).Shortcut(a.menuKey("Remote branches", ui.Shift, ui.KeySpace)).Disabled(a.actionBusy).Chosen() {
 		a.selectRemoteBranchRow(row.Index)
 		a.confirmCheckoutRemoteBranch(remote, branch)
 	}
 	if a.snapshot.Branch != "" {
 		qualified := remoteLocalBranch(remote, branch)
 		m.Separator()
-		if m.Item(tr("Merge into current")).Shortcut(ui.Shift, ui.KeyM).Disabled(a.actionBusy).Chosen() {
+		if m.Item(tr("Merge into current")).Shortcut(a.menuKey("Remote branches", ui.Shift, ui.KeyM)).Disabled(a.actionBusy).Chosen() {
 			a.selectRemoteBranchRow(row.Index)
 			a.confirmMergeBranch(qualified)
 		}
-		if m.Item(tr("Rebase current onto this")).Shortcut(0, ui.KeyR).Disabled(a.actionBusy).Chosen() {
+		if m.Item(tr("Rebase current onto this")).Shortcut(a.menuKey("Remote branches", 0, ui.KeyR)).Disabled(a.actionBusy).Chosen() {
 			a.selectRemoteBranchRow(row.Index)
 			a.confirmRebaseOntoBranch(qualified)
 		}
 		if localBranch := a.currentBranchName(); localBranch != "" {
-			if m.Item(trf("Set as upstream of %s", localBranch)).Shortcut(0, ui.KeyU).Disabled(a.actionBusy).Chosen() {
+			if m.Item(trf("Set as upstream of %s", localBranch)).Shortcut(a.menuKey("Remote branches", 0, ui.KeyU)).Disabled(a.actionBusy).Chosen() {
 				a.selectRemoteBranchRow(row.Index)
 				a.beginSetUpstream(remote, branch)
 			}
 		}
 	}
 	m.Separator()
-	if m.Item(tr("Copy full branch name")).Shortcut(0, ui.KeyC).Chosen() {
+	if m.Item(tr("Copy full branch name")).Shortcut(a.menuKey("Remote branches", 0, ui.KeyC)).Chosen() {
 		a.notifyCopied(services, "remote branch", remote.Name+"/"+branch.Name)
 	}
 	m.Separator()
-	if m.Item(tr("Delete remote branch")).Shortcut(ui.Shift, ui.KeyD).Disabled(a.actionBusy).Chosen() {
+	if m.Item(tr("Delete remote branch")).Shortcut(a.menuKey("Remote branches", ui.Shift, ui.KeyD)).Disabled(a.actionBusy).Chosen() {
 		a.selectRemoteBranchRow(row.Index)
 		a.confirmDeleteRemoteBranch(remote, branch)
 	}
@@ -393,25 +393,25 @@ func (a *app) remoteRowMenu(m *ui.Menu, row ui.ListRow, services ui.Services) {
 	if !ok {
 		return
 	}
-	if m.Item(tr("Fetch remote")).Shortcut(0, ui.KeyF).Disabled(a.actionBusy).Chosen() {
+	if m.Item(tr("Fetch remote")).Shortcut(a.menuKey("Remotes", 0, ui.KeyF)).Disabled(a.actionBusy).Chosen() {
 		a.selectRemoteRow(row.Index)
 		a.beginFetchRemote(remote)
 	}
-	if m.Item(tr("Edit remote")).Shortcut(0, ui.KeyE).Disabled(a.actionBusy).Chosen() {
+	if m.Item(tr("Edit remote")).Shortcut(a.menuKey("Remotes", 0, ui.KeyE)).Disabled(a.actionBusy).Chosen() {
 		a.selectRemoteRow(row.Index)
 		a.openEditRemote(remote)
 	}
 	m.Separator()
 	webURL := a.remoteWebAddress(remote)
-	if m.Item(tr("Open in browser")).Shortcut(0, ui.KeyO).Disabled(webURL == "").Chosen() {
+	if m.Item(tr("Open in browser")).Shortcut(a.menuKey("Remotes", 0, ui.KeyO)).Disabled(webURL == "").Chosen() {
 		a.selectRemoteRow(row.Index)
 		a.openRemoteWebURL(services, remote)
 	}
-	if m.Item(tr("Copy web URL")).Shortcut(0, ui.KeyC).Disabled(webURL == "").Chosen() {
+	if m.Item(tr("Copy web URL")).Shortcut(a.menuKey("Remotes", 0, ui.KeyC)).Disabled(webURL == "").Chosen() {
 		a.selectRemoteRow(row.Index)
 		a.copyRemoteWebURL(services, remote)
 	}
-	if m.Item(tr("Edit web URL")).Shortcut(ui.Shift, ui.KeyO).Chosen() {
+	if m.Item(tr("Edit web URL")).Shortcut(a.menuKey("Remotes", ui.Shift, ui.KeyO)).Chosen() {
 		a.selectRemoteRow(row.Index)
 		a.openEditRemoteWebURL(remote)
 	}
@@ -422,7 +422,7 @@ func (a *app) remoteRowMenu(m *ui.Menu, row ui.ListRow, services ui.Services) {
 		}
 		m.Separator()
 	}
-	if m.Item(tr("Remove remote")).Shortcut(0, ui.KeyD).Disabled(a.actionBusy).Chosen() {
+	if m.Item(tr("Remove remote")).Shortcut(a.menuKey("Remotes", 0, ui.KeyD)).Disabled(a.actionBusy).Chosen() {
 		a.selectRemoteRow(row.Index)
 		a.confirmRemoveRemote(remote)
 	}

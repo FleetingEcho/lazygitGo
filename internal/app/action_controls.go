@@ -63,6 +63,8 @@ type actionControl struct {
 	menu           []actionControl
 	primary        bool
 	textOnly       bool
+	// small draws the button a size down, as the conflict toolbar's are.
+	small bool
 }
 
 func (action actionControl) localizedTooltip() string {
@@ -103,12 +105,20 @@ func renderActionControl(c *ui.Context, action actionControl, showLabel bool) {
 		} else {
 			button = ui.Button(c, "")
 		}
-		if showLabel {
+		switch {
+		case showLabel && action.small:
+			button = smallTextButton(button)
+			if showIcon {
+				button = button.Gap(5)
+			}
+		case showLabel:
 			button = compactTextButton(button)
 			if showIcon {
 				button = button.Gap(6)
 			}
-		} else {
+		case action.small:
+			button = smallIconButton(button)
+		default:
 			button = compactIconButton(button)
 		}
 		button.Label(tr(action.label)).Tooltip(tooltip).Disabled(action.disabled)
@@ -129,10 +139,17 @@ func renderActionControl(c *ui.Context, action actionControl, showLabel bool) {
 		clicked := button.Clicked()
 		button.Children(func() {
 			if showIcon {
-				ui.Icon(c, action.icon).FontSize(14)
+				size := float32(14)
+				if action.small {
+					size = 12
+				}
+				ui.Icon(c, action.icon).FontSize(size)
 			}
 			if showLabel {
-				ui.Text(c, tr(visibleLabel)).SingleLine()
+				text := ui.Text(c, tr(visibleLabel)).SingleLine()
+				if action.small {
+					text.FontSize(c.Theme().FontSize - 1)
+				}
 			}
 		})
 		if len(action.menu) == 0 && clicked && !action.disabled && action.run != nil {
@@ -155,6 +172,7 @@ func (a *app) conflictActionButton(c *ui.Context, action actionControl) {
 }
 
 func (a *app) conflictActionButtonWithLabels(c *ui.Context, action actionControl, showLabel bool) {
+	action.small = action.small || a.smallToolbarActions
 	if action.run != nil {
 		run := action.run
 		action.run = func() {
@@ -188,7 +206,7 @@ func (a *app) conflictCompactActionGroup(c *ui.Context, label string, icon *ui.S
 	ui.Row(c).MinWidth(0).AlignItems(ui.Center).Gap(6).Label(tr(label) + " group").Children(func() {
 		if len(menu) > 0 {
 			renderActionControl(c, actionControl{
-				label: label, visibleLabel: label, icon: icon,
+				label: label, visibleLabel: label, icon: icon, small: a.smallToolbarActions,
 				description: "Show this action group with labels and unavailable reasons", menu: menu,
 			}, showGroupLabel)
 		} else if showGroupLabel {
@@ -244,7 +262,11 @@ func (a *app) measuredActionGroupWidth(c *ui.Context, row ui.Element) float32 {
 }
 
 func (a *app) conflictToolbarRow(c *ui.Context) (ui.Element, bool, bool) {
-	row := ui.Row(c).FillWidth().MinWidth(0).AlignItems(ui.Center).Gap(10).Wrap().Label(tr("Conflict toolbar"))
+	theme := c.Theme()
+	// The toolbar is a card of its own, so it reads as one control strip above
+	// the file rather than loose buttons.
+	row := ui.Row(c).FillWidth().MinWidth(0).AlignItems(ui.Center).Gap(10).Wrap().Label(tr("Conflict toolbar")).
+		Padding(5, 8).Background(theme.Surface).Border(1, theme.Border).Radius(theme.Radius + 2)
 	paneWidth := a.measuredActionGroupWidth(c, row)
 	compact := paneWidth <= 0 || paneWidth < conflictCompactPaneWidth
 	tiny := paneWidth <= 0 || paneWidth < conflictTinyPaneWidth

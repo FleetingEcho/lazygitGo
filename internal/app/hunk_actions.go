@@ -336,23 +336,23 @@ func (a *app) hunkActionControls(c *ui.Context) {
 		actions := make([]actionControl, 0, 4)
 		if status.staged {
 			actions = append(actions, actionControl{
-				label: "Unstage hunk", shortcut: "s", description: "Unstage only the current hunk; leave it in the working tree", icon: unstageIcon,
+				label: "Unstage hunk", shortcut: a.keyText("diff/Stage or unstage the current diff hunk", "s"), description: "Unstage only the current hunk; leave it in the working tree", icon: unstageIcon,
 				disabled: disabled, disabledReason: mutationReason, run: a.beginCurrentHunkAction,
 			})
 		} else {
 			actions = append(actions,
-				actionControl{label: "Stage hunk", shortcut: "s", description: "Stage only the current hunk, leaving other hunks unstaged", icon: stageIcon,
+				actionControl{label: "Stage hunk", shortcut: a.keyText("diff/Stage or unstage the current diff hunk", "s"), description: "Stage only the current hunk, leaving other hunks unstaged", icon: stageIcon,
 					disabled: disabled, disabledReason: mutationReason, run: a.beginCurrentHunkAction},
-				actionControl{label: "Discard hunk", shortcut: "d", description: "Discard the current hunk after confirmation; keep the index untouched", icon: revertIcon,
+				actionControl{label: "Discard hunk", shortcut: a.keyText("diff/Discard the current working-tree diff hunk after confirmation", "d"), description: "Discard the current hunk after confirmation; keep the index untouched", icon: revertIcon,
 					disabled: disabled, disabledReason: mutationReason, run: a.confirmDiscardCurrentHunk},
 			)
 		}
 		previousReason := a.hunkNavigationDisabledReason(-1)
 		nextReason := a.hunkNavigationDisabledReason(1)
 		actions = append(actions,
-			actionControl{label: "Previous hunk", shortcut: "[", description: "Go to the previous diff hunk", icon: chevronUpIcon,
+			actionControl{label: "Previous hunk", shortcut: a.keyText("diff/Go to the previous diff hunk", "["), description: "Go to the previous diff hunk", icon: chevronUpIcon,
 				disabled: previousReason != "", disabledReason: previousReason, run: func() { navigateDiffHunk(a.diffState, -1) }},
-			actionControl{label: "Next hunk", shortcut: "]", description: "Go to the next diff hunk", icon: chevronDownIcon,
+			actionControl{label: "Next hunk", shortcut: a.keyText("diff/Go to the next diff hunk", "]"), description: "Go to the next diff hunk", icon: chevronDownIcon,
 				disabled: nextReason != "", disabledReason: nextReason, run: func() { navigateDiffHunk(a.diffState, 1) }},
 		)
 		if compactLabels {

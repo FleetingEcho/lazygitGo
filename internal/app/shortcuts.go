@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/egoist/mygo/ui"
 
@@ -57,7 +58,10 @@ func (a *app) registerShortcuts(c *ui.Context) {
 	// An open shortcut list owns Escape: it is how the dialog is dismissed,
 	// whether or not the shortcuts themselves are switched on.
 	if a.keybindingsOpen {
-		a.onShortcut(c, 0, ui.KeyEscape, shortcut("keybindings/close", "Escape", tr("Close a dialog or cancel the current step")), a.closeKeybindings)
+		// While a key is being recorded Escape only cancels the recording.
+		if a.keyEdit.idle() {
+			a.onShortcut(c, 0, ui.KeyEscape, shortcut("keybindings/close", "Escape", tr("Close a dialog or cancel the current step")), a.closeKeybindings)
+		}
 		return
 	}
 	if a.commandLogOpen {
@@ -107,8 +111,8 @@ func (a *app) registerShortcuts(c *ui.Context) {
 	if a.branchFullscreen {
 		a.onShortcut(c, 0, ui.KeyEscape, shortcut("branches/close-fullscreen", "Escape", tr("Close a dialog or cancel the current step")), a.escapeBranchFullscreen)
 		if !a.settings.DisableShortcuts {
-			a.onShortcut(c, 0, ui.KeyF6, shortcut("panes/cycle-next-fullscreen", "F6", tr("Move between panels")), func() { a.cycleKeyboardPane(c, 1) })
-			a.onShortcut(c, ui.Shift, ui.KeyF6, shortcut("panes/cycle-previous-fullscreen", "Shift+F6", tr("Move between panels")), func() { a.cycleKeyboardPane(c, -1) })
+			a.onGlobalKey(c, "global/pane-next", func() { a.cycleKeyboardPane(c, 1) })
+			a.onGlobalKey(c, "global/pane-previous", func() { a.cycleKeyboardPane(c, -1) })
 		}
 		return
 	}
@@ -119,9 +123,9 @@ func (a *app) registerShortcuts(c *ui.Context) {
 	if a.state == stateCloning {
 		a.onShortcut(c, 0, ui.KeyEscape, shortcut("clone/cancel", "Escape", tr("Cancel cloning or close the clone form")), a.cancelCloneOperation)
 		if !a.settings.DisableShortcuts {
-			a.onShortcut(c, 0, ui.KeyF1, shortcut("keybindings/cloning-help", "F1", tr("Open the complete shortcut list")), a.openKeybindings)
+			a.onGlobalKey(c, "global/shortcuts-all", a.openKeybindings)
 			if !c.FocusTakesText() {
-				a.onShortcut(c, ui.Shift, ui.KeySlash, shortcut("keybindings/cloning-current", "?", tr("Show shortcuts for the current page")), a.openCurrentKeybindings)
+				a.onGlobalKey(c, "global/shortcuts-page", a.openCurrentKeybindings)
 			}
 		}
 		return
@@ -140,8 +144,8 @@ func (a *app) registerShortcuts(c *ui.Context) {
 	// Picking a range of lines is a mode of the Changes page: Escape is how it
 	// is left, the same as its Cancel button.
 	if a.lineSelectMode {
-		a.onShortcut(c, 0, ui.KeyF6, shortcut("panes/cycle-next-line-selection", "F6", tr("Move between panels")), func() { a.cycleKeyboardPane(c, 1) })
-		a.onShortcut(c, ui.Shift, ui.KeyF6, shortcut("panes/cycle-previous-line-selection", "Shift+F6", tr("Move between panels")), func() { a.cycleKeyboardPane(c, -1) })
+		a.onGlobalKey(c, "global/pane-next", func() { a.cycleKeyboardPane(c, 1) })
+		a.onGlobalKey(c, "global/pane-previous", func() { a.cycleKeyboardPane(c, -1) })
 		a.onShortcut(c, 0, ui.KeyEscape, shortcut("diff/stop-line-selection", "Escape", tr("Close a dialog or cancel the current step")), a.stopLineSelection)
 		return
 	}
@@ -175,16 +179,16 @@ func (a *app) registerShortcuts(c *ui.Context) {
 	}
 	// Preferences and the shortcut reference are always reachable, on the
 	// picker as in the workspace, and so is the command log.
-	a.onShortcut(c, ui.Ctrl, ui.KeyComma, shortcut("settings/open", "Ctrl+,", tr("Open settings")), a.openSettings)
-	a.onShortcut(c, 0, ui.KeyF1, shortcut("keybindings/open-all", "F1", tr("Open the complete shortcut list")), a.openKeybindings)
+	a.onGlobalKey(c, "global/settings", a.openSettings)
+	a.onGlobalKey(c, "global/shortcuts-all", a.openKeybindings)
 	if !c.FocusTakesText() {
-		a.onShortcut(c, ui.Shift, ui.KeySlash, shortcut("keybindings/open-current", "?", tr("Show shortcuts for the current page")), a.openCurrentKeybindings)
+		a.onGlobalKey(c, "global/shortcuts-page", a.openCurrentKeybindings)
 	}
 	if !a.editorOnlyWorkspace() {
-		a.onShortcut(c, ui.Ctrl, ui.KeyL, shortcut("command-log/open", "Ctrl+L", tr("Show the command log")), a.openCommandLog)
+		a.onGlobalKey(c, "global/command-log", a.openCommandLog)
 	}
-	a.onShortcut(c, 0, ui.KeyF6, shortcut("panes/cycle-next", "F6", tr("Move between panels")), func() { a.cycleKeyboardPane(c, 1) })
-	a.onShortcut(c, ui.Shift, ui.KeyF6, shortcut("panes/cycle-previous", "Shift+F6", tr("Move between panels")), func() { a.cycleKeyboardPane(c, -1) })
+	a.onGlobalKey(c, "global/pane-next", func() { a.cycleKeyboardPane(c, 1) })
+	a.onGlobalKey(c, "global/pane-previous", func() { a.cycleKeyboardPane(c, -1) })
 	a.onShortcut(c, 0, ui.KeyEscape, shortcut("navigation/back", "Escape", tr("Close a dialog or cancel the current step")), func() { a.keyboardBack(c) })
 	if (a.state == stateEmpty || a.state == stateError) && !c.FocusTakesText() {
 		a.onShortcut(c, 0, ui.KeyC, shortcut("picker/clone", "C", tr("Clone a remote repository")), a.openCloneForm)
@@ -221,16 +225,21 @@ func (a *app) registerShortcuts(c *ui.Context) {
 			}
 			a.onShortcut(c, ui.Alt, ui.KeyZ, shortcut("conflicts/undo-resolution", "Alt+Z", tr("Undo the last conflict resolution")), a.confirmUndoConflictResolution)
 		}
-		if !a.editorOnlyWorkspace() {
-			a.onShortcut(c, 0, ui.KeyF5, shortcut("repository/refresh-editing", "F5", tr("Refresh the repository")), a.beginRefresh)
+		// The Result editor of a conflict owns the letters only while it has the
+		// focus. With the focus anywhere else, as after the page opens on a
+		// merge, the digits and the other keys must keep working.
+		if a.fileEditing || c.FocusTakesText() {
+			if !a.editorOnlyWorkspace() {
+				a.onGlobalKey(c, "global/refresh", a.beginRefresh)
+			}
+			return
 		}
-		return
 	}
 
 	// Custom bindings take precedence not just over Git commands but also F5,
 	// Ctrl+L, section digits and navigation globals registered below.
 	if !a.editorOnlyWorkspace() {
-		a.onShortcut(c, 0, ui.KeyF5, shortcut("repository/refresh", "F5", tr("Refresh the repository")), a.beginRefresh)
+		a.onGlobalKey(c, "global/refresh", a.beginRefresh)
 	}
 	if a.workspaceTab == sectionCode {
 		if a.shellOverlayOpen == nil {
@@ -240,26 +249,26 @@ func (a *app) registerShortcuts(c *ui.Context) {
 		a.onShortcut(c, ui.Cmd|ui.Shift, ui.KeyH, shortcut("code/replace", cmdShortcutChord()+"+Shift+H", tr("Search files")), a.focusCodeReplace)
 		a.onShortcut(c, ui.Cmd, ui.KeyW, shortcut("code/close-file", cmdShortcutChord()+"+W", tr("Close the active tab")), func() { a.closeCodeFile(a.code.active) })
 	}
-	a.onShortcut(c, 0, ui.KeyF3, shortcut("search/next", "F3", tr("Move to the next / previous quick-search result")), func() { a.navigateActiveSearch(1) })
-	a.onShortcut(c, ui.Shift, ui.KeyF3, shortcut("search/previous", "Shift+F3", tr("Move to the next / previous quick-search result")), func() { a.navigateActiveSearch(-1) })
+	a.onGlobalKey(c, "global/search-next", func() { a.navigateActiveSearch(1) })
+	a.onGlobalKey(c, "global/search-previous", func() { a.navigateActiveSearch(-1) })
 	if c.FocusTakesText() {
 		return
 	}
 	if !a.editorOnlyWorkspace() {
 		a.onShortcut(c, ui.Shift, ui.KeyW, shortcut("compare/open-shifted", "Shift+W", tr("Compare two refs")), a.openCompare)
-		a.onShortcut(c, 0, ui.KeyW, shortcut("compare/open", "W", tr("Compare two refs")), a.openCompare)
-		a.onShortcut(c, ui.Alt, ui.KeyW, shortcut("diff/toggle-whitespace", "Alt+W", tr("Ignore or show whitespace-only diff changes")), a.toggleDiffWhitespace)
-		a.onShortcut(c, ui.Alt, ui.KeyU, shortcut("diff/context-lines", "Alt+U", tr("Cycle ordinary diff context lines")), a.cycleDiffContext)
+		a.onGlobalKey(c, "global/compare", a.openCompare)
+		a.onGlobalKey(c, "global/whitespace", a.toggleDiffWhitespace)
+		a.onGlobalKey(c, "global/context-lines", a.cycleDiffContext)
 	}
 	if a.workspaceTab == sectionChanges {
 		a.onShortcut(c, ui.Alt, ui.KeyJ, shortcut("changes/next-file", "Alt+J", tr("Go to the next changed file")), func() { a.changedFileNavigation(1) })
 		a.onShortcut(c, ui.Alt, ui.KeyK, shortcut("changes/previous-file", "Alt+K", tr("Go to the previous changed file")), func() { a.changedFileNavigation(-1) })
 	}
-	a.onShortcut(c, 0, ui.KeySlash, shortcut("search/focus-active", "/", tr("Search the active panel")), a.focusActiveSearch)
+	a.onGlobalKey(c, "global/search", a.focusActiveSearch)
 	if !a.editorOnlyWorkspace() {
-		a.onShortcut(c, ui.Shift, ui.KeySemicolon, shortcut("commands/prompt", ":", tr("Run a one-off shell command")), a.openCommandPrompt)
-		a.onWindowShortcut(c, ui.Ctrl, ui.KeyZ, shortcut("repository/undo", "Ctrl+Z", tr("Undo the latest eligible Git operation")), a.confirmUndo)
-		a.onWindowShortcut(c, ui.Ctrl|ui.Shift, ui.KeyZ, shortcut("repository/redo", "Ctrl+Shift+Z", tr("Redo the latest undone Git operation")), a.confirmRedo)
+		a.onGlobalKey(c, "global/shell-prompt", a.openCommandPrompt)
+		a.onGlobalKey(c, "global/undo", a.confirmUndo)
+		a.onGlobalKey(c, "global/redo", a.confirmRedo)
 	}
 	// The digits number the sections that show, so 1 is always the first
 	// sidebar row even after some are hidden.
@@ -269,8 +278,15 @@ func (a *app) registerShortcuts(c *ui.Context) {
 			break
 		}
 		tab := visible[i]
-		a.onShortcut(c, 0, key, shortcut(fmt.Sprintf("workspace/open-section-%d", i+1), fmt.Sprintf("%d", (i+1)%10), tr("Switch to a workspace section")), func() { a.setWorkspaceTab(tab) })
+		a.onShortcut(c, 0, key, shortcut(fmt.Sprintf("workspace/open-section-%d", i+1), fmt.Sprintf("%d", (i+1)%10), trf("Switch to %s", tr(workspaceSections[tab]))), func() { a.setWorkspaceTab(tab) })
 	}
+
+	a.onGlobalKey(c, "global/quit", quitApplication)
+	a.onGlobalKey(c, "global/toggle-list-pane", a.toggleListPane)
+	a.onGlobalKey(c, "global/toggle-sidebar", func() { a.navPaneCollapsed = !a.navPaneCollapsed })
+	// Only ten sections have a digit; these reach every section in order.
+	a.onGlobalKey(c, "global/section-next", func() { a.cycleWorkspaceSection(1) })
+	a.onGlobalKey(c, "global/section-previous", func() { a.cycleWorkspaceSection(-1) })
 
 	a.registerGitCommands(c)
 
@@ -367,4 +383,30 @@ func (a *app) updateSelectedSubmodule() {
 				return session.UpdateSubmodule(ctx, submodule.Path)
 			}, nil)
 	})
+}
+
+// cycleWorkspaceSection moves to the next or previous section that shows,
+// wrapping around, for the sections beyond the ten that have a digit.
+func (a *app) cycleWorkspaceSection(delta int) {
+	visible := a.visibleSections()
+	if len(visible) == 0 {
+		return
+	}
+	at := slices.Index(visible, a.workspaceTab)
+	if at < 0 {
+		at = 0
+	}
+	a.setWorkspaceTab(visible[(at+delta+len(visible))%len(visible)])
+}
+
+// toggleListPane collapses or expands the list of the section on screen, as
+// its collapse button does.
+func (a *app) toggleListPane() {
+	if a.workspaceTab == sectionChanges {
+		a.filePaneCollapsed = !a.filePaneCollapsed
+		return
+	}
+	if a.workspaceTab >= 0 && a.workspaceTab < len(a.workspacePaneCollapsed) {
+		a.workspacePaneCollapsed[a.workspaceTab] = !a.workspacePaneCollapsed[a.workspaceTab]
+	}
 }

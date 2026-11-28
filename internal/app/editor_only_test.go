@@ -45,7 +45,7 @@ func TestHomeAutomaticallyOpensPlainFolderAndExplainsEditorMode(t *testing.T) {
 			switch source {
 			case "Browse":
 				started, release := holdRepositoryFolderDialog(t)
-				if err := tt.Click("Browse files"); err != nil {
+				if err := tt.Click("Browse folder"); err != nil {
 					t.Fatal(err)
 				}
 				<-started
@@ -89,7 +89,7 @@ func TestHomeEditorModeOpensPlainFolderWithoutInitialization(t *testing.T) {
 		t.Fatal(err)
 	}
 	tt.Frame()
-	if !tt.HasText("Open a workspace.") || tt.HasText("Clone repository") {
+	if !tt.HasText("Open a workspace") || tt.HasText("Clone repository") {
 		t.Fatalf("Editor mode did not update Home: %q", tt.Texts())
 	}
 	visibleBefore := slices.Clone(a.settings.VisibleSections)
@@ -186,7 +186,7 @@ func TestPickerRecentRepositoriesAndFoldersAreIndependent(t *testing.T) {
 		recentRepository{Path: "/work/notes", LastOpened: timeNow(), EditorOnly: true},
 	)
 	mode, modeOK := tt.Find("Open mode")
-	hero, heroOK := tt.Find("Open a workspace.")
+	hero, heroOK := tt.Find("Open a workspace")
 	if !modeOK || !heroOK || mode.Y <= hero.Y {
 		t.Fatalf("Home mode is not below the workspace heading: mode=%+v hero=%+v", mode, hero)
 	}

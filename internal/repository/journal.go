@@ -260,6 +260,25 @@ func (s *gitSession) pinJournalObject(id string, object string) (string, error) 
 	return ref, nil
 }
 
+// scopeFingerprintsIgnored says whether the repository-state fingerprint of an
+// operation covers the ignored tree. An explicitly empty capture scope proves
+// ignored files are outside the action. The fingerprint stays at the same scale
+// at the start, at the end and when Undo checks it, rather than rejecting a legal
+// filename (or an unrelated build file that changed meanwhile) that neither the
+// action nor its Undo reads.
+func scopeFingerprintsIgnored(scope workspaceArchiveScope, enabled bool) bool {
+	return !(enabled && !scope.AllIgnored && len(scope.IgnoredPaths) == 0)
+}
+
+// recordFingerprintsIgnored is scopeFingerprintsIgnored for a stored record.
+func (s *gitSession) recordFingerprintsIgnored(snapshot *WorkSnapshot) (bool, error) {
+	scope, enabled, err := storedWorkspaceScope(s, snapshot)
+	if err != nil {
+		return true, err
+	}
+	return scopeFingerprintsIgnored(scope, enabled), nil
+}
+
 func (s *gitSession) beginOperation(kind, summary string, undoKind string, snapshot *WorkSnapshot) (OperationRecord, error) {
 	var random [16]byte
 	if _, err := rand.Read(random[:]); err != nil {
@@ -273,14 +292,7 @@ func (s *gitSession) beginOperation(kind, summary string, undoKind string, snaps
 	if err != nil {
 		return OperationRecord{}, err
 	}
-	includeIgnored := true
-	if enabled && !scope.AllIgnored && len(scope.IgnoredPaths) == 0 {
-		// An explicitly empty capture scope proves ignored files are outside
-		// this action. Keep the fingerprint at the same scale rather than
-		// rejecting a legal filename that neither the action nor its Undo reads.
-		includeIgnored = false
-	}
-	state, err := s.patchRepositoryStateWithIgnored(includeIgnored)
+	state, err := s.patchRepositoryStateWithIgnored(scopeFingerprintsIgnored(scope, enabled))
 	if err != nil {
 		return OperationRecord{}, fmt.Errorf("record operation start: %w", err)
 	}
@@ -368,7 +380,10 @@ func (s *gitSession) completeJournalOperation(record OperationRecord, actionErr 
 	if record.UndoKind == UndoResetHead {
 		state, stateErr = s.resetRepositoryState(record.HeadBefore, head)
 	} else {
-		state, stateErr = s.patchRepositoryState()
+		var includeIgnored bool
+		if includeIgnored, stateErr = s.recordFingerprintsIgnored(record.Snapshot); stateErr == nil {
+			state, stateErr = s.patchRepositoryStateWithIgnored(includeIgnored)
+		}
 	}
 	record.BranchAfter, record.HeadAfter = branch, head
 	if stateErr == nil {
@@ -561,7 +576,10 @@ func (s *gitSession) requireUnchangedOperation(record OperationRecord) error {
 	if record.UndoKind == UndoResetHead {
 		state, err = s.resetRepositoryState(record.HeadBefore, record.HeadAfter)
 	} else {
-		state, err = s.patchRepositoryState()
+		var includeIgnored bool
+		if includeIgnored, err = s.recordFingerprintsIgnored(record.Snapshot); err == nil {
+			state, err = s.patchRepositoryStateWithIgnored(includeIgnored)
+		}
 	}
 	if err != nil {
 		return err

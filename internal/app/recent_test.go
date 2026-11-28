@@ -253,7 +253,7 @@ func TestRecentPickerOffersNoListWhenHistoryIsEmpty(t *testing.T) {
 	if strings.Contains(texts, "Recent repositories") {
 		t.Fatalf("the welcome text must stand in without history: %v", tt.Texts())
 	}
-	if !strings.Contains(texts, "Open a workspace.") {
+	if !strings.Contains(texts, "Open a workspace") {
 		t.Fatalf("welcome text missing: %v", tt.Texts())
 	}
 }

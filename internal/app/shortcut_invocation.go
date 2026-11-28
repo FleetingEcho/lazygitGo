@@ -22,6 +22,14 @@ type shortcutDefinition struct {
 // invocation explicitly into any longer workflow instead of reading a mutable
 // current-shortcut value on a worker.
 func (a *app) invokeShortcut(def shortcutDefinition, run func(repository.ShortcutInvocation)) {
+	// A click can activate a row through the same path as Enter. It is not a
+	// key press, so it is neither logged nor acknowledged as one.
+	if def.chord == "Enter" && a.lastInputPointer {
+		if run != nil {
+			run(repository.ShortcutInvocation{ID: def.id, Chord: def.chord, Label: def.label})
+		}
+		return
+	}
 	inv := a.commandLog.RecordShortcut(repository.ShortcutInvocation{
 		ID: def.id, Chord: def.chord, Label: def.label,
 	})

@@ -417,7 +417,7 @@ func (a *app) filesView(c *ui.Context) {
 			return
 		}
 		if len(a.snapshot.Files) == 0 {
-			ui.Column(c).Grow(1).Center().Children(func() {
+			a.changesEmptyPane(c, ui.Column(c).Grow(1).Center()).Children(func() {
 				ui.Text(c, tr("Working tree clean")).TextColor(theme.TextMuted)
 				// The change that emptied this list can usually be taken back; say so
 				// here, but only just after it happened. Ctrl+Z keeps working later.
@@ -830,6 +830,7 @@ func (a *app) changesHeader(c *ui.Context) {
 			flatToggleIconButton(c, treeLabel, treeTooltip, folderIcon, 15, 5, a.fileTreeMode, func() {
 				a.fileTreeMode = !a.fileTreeMode
 			})
+			a.safetyJournalHeaderButton(c)
 			flatIconButton(c, "Refresh", "F5", refreshIcon, 15, 5, a.actionBusy, a.beginRefresh)
 			flatIconButton(c, "Apply patch", "Preview and apply a patch or diff file (Ctrl+I)", patchImportIcon, 15, 5,
 				a.actionBusy || a.session == nil, a.beginPatchImport)

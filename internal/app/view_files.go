@@ -539,7 +539,7 @@ func (a *app) fileRowMenu(m *ui.Menu, index int, services ui.Services) {
 	if a.review.files[file.Path] {
 		reviewLabel = "Mark unreviewed"
 	}
-	if m.Item(tr(reviewLabel)).Shortcut(0, ui.KeyR).Disabled(a.actionBusy).Chosen() {
+	if m.Item(tr(reviewLabel)).Shortcut(a.menuKey("Changes", 0, ui.KeyR)).Disabled(a.actionBusy).Chosen() {
 		a.setFileReviewed(file, !a.review.files[file.Path])
 	}
 	m.Separator()
@@ -560,25 +560,25 @@ func (a *app) fileRowMenu(m *ui.Menu, index int, services ui.Services) {
 		}
 	} else {
 		if change.staged {
-			if m.Item(tr("Unstage")).Shortcut(0, ui.KeySpace).Disabled(a.actionBusy).Chosen() {
+			if m.Item(tr("Unstage")).Shortcut(a.menuKey("Changes", 0, ui.KeySpace)).Disabled(a.actionBusy).Chosen() {
 				a.beginStageFile(file, false)
 			}
 		} else {
-			if m.Item(tr("Stage")).Shortcut(0, ui.KeySpace).Disabled(a.actionBusy).Chosen() {
+			if m.Item(tr("Stage")).Shortcut(a.menuKey("Changes", 0, ui.KeySpace)).Disabled(a.actionBusy).Chosen() {
 				a.beginStageFile(file, true)
 			}
 		}
 		if !file.Deleted {
-			if m.Item(tr("Blame")).Shortcut(0, ui.KeyB).Disabled(a.actionBusy).Chosen() {
+			if m.Item(tr("Blame")).Shortcut(a.menuKey("Changes", 0, ui.KeyB)).Disabled(a.actionBusy).Chosen() {
 				a.beginBlame()
 			}
 		}
 		m.Separator()
 		if !file.Tracked && !file.Staged {
-			if m.Item(tr("Add to .gitignore")).Shortcut(0, ui.KeyI).Disabled(a.actionBusy).Chosen() {
+			if m.Item(tr("Add to .gitignore")).Shortcut(a.menuKey("Changes", 0, ui.KeyI)).Disabled(a.actionBusy).Chosen() {
 				a.ignoreFile(file, false)
 			}
-			if m.Item(tr("Add to .git/info/exclude")).Shortcut(ui.Shift, ui.KeyI).Disabled(a.actionBusy).Chosen() {
+			if m.Item(tr("Add to .git/info/exclude")).Shortcut(a.menuKey("Changes", ui.Shift, ui.KeyI)).Disabled(a.actionBusy).Chosen() {
 				a.ignoreFile(file, true)
 			}
 			m.Separator()
@@ -586,7 +586,7 @@ func (a *app) fileRowMenu(m *ui.Menu, index int, services ui.Services) {
 		if m.Item(tr("Stash selected file")).Disabled(a.actionBusy).Chosen() {
 			a.openSelectedFileStash(file)
 		}
-		if m.Item(tr("Discard changes")).Shortcut(0, ui.KeyD).Disabled(a.actionBusy).Chosen() {
+		if m.Item(tr("Discard changes")).Shortcut(a.menuKey("Changes", 0, ui.KeyD)).Disabled(a.actionBusy).Chosen() {
 			a.confirmDiscardFile(file)
 		}
 	}
@@ -841,26 +841,26 @@ func (a *app) fileActionsMenu(c *ui.Context, theme *ui.Theme, file repository.Fi
 			return
 		}
 		if file.Unstaged {
-			if m.Item(tr("Stage")).Shortcut(0, ui.KeySpace).Disabled(a.actionBusy).Chosen() {
+			if m.Item(tr("Stage")).Shortcut(a.menuKey("Changes", 0, ui.KeySpace)).Disabled(a.actionBusy).Chosen() {
 				a.beginFileAction(true)
 			}
 		}
 		if file.Staged {
-			if m.Item(tr("Unstage")).Shortcut(0, ui.KeySpace).Disabled(a.actionBusy).Chosen() {
+			if m.Item(tr("Unstage")).Shortcut(a.menuKey("Changes", 0, ui.KeySpace)).Disabled(a.actionBusy).Chosen() {
 				a.beginFileAction(false)
 			}
 		}
 		if !file.Deleted {
-			if m.Item(tr("Blame")).Shortcut(0, ui.KeyB).Disabled(a.actionBusy).Chosen() {
+			if m.Item(tr("Blame")).Shortcut(a.menuKey("Changes", 0, ui.KeyB)).Disabled(a.actionBusy).Chosen() {
 				a.beginBlame()
 			}
 		}
 		m.Separator()
 		if !file.Tracked && !file.Staged {
-			if m.Item(tr("Add to .gitignore")).Shortcut(0, ui.KeyI).Disabled(a.actionBusy).Chosen() {
+			if m.Item(tr("Add to .gitignore")).Shortcut(a.menuKey("Changes", 0, ui.KeyI)).Disabled(a.actionBusy).Chosen() {
 				a.ignoreFile(file, false)
 			}
-			if m.Item(tr("Add to .git/info/exclude")).Shortcut(ui.Shift, ui.KeyI).Disabled(a.actionBusy).Chosen() {
+			if m.Item(tr("Add to .git/info/exclude")).Shortcut(a.menuKey("Changes", ui.Shift, ui.KeyI)).Disabled(a.actionBusy).Chosen() {
 				a.ignoreFile(file, true)
 			}
 			m.Separator()
@@ -868,7 +868,7 @@ func (a *app) fileActionsMenu(c *ui.Context, theme *ui.Theme, file repository.Fi
 		if m.Item(tr("Stash selected file")).Disabled(a.actionBusy).Chosen() {
 			a.openSelectedFileStash(file)
 		}
-		if m.Item(tr("Discard changes")).Shortcut(0, ui.KeyD).Disabled(a.actionBusy).Chosen() {
+		if m.Item(tr("Discard changes")).Shortcut(a.menuKey("Changes", 0, ui.KeyD)).Disabled(a.actionBusy).Chosen() {
 			a.confirmDiscardSelected()
 		}
 	})
@@ -1029,6 +1029,8 @@ func conflictToolbarSeparator(c *ui.Context, theme *ui.Theme, label string) {
 // status badge describes a whole-file resolution; Use both and initial-hunk
 // Restore would have no meaning, so they do not consume slots here.
 func (a *app) conflictSidesToolbar(c *ui.Context, theme *ui.Theme) {
+	a.smallToolbarActions = true
+	defer func() { a.smallToolbarActions = false }()
 	sides := a.conflictSides
 	reason := a.conflictMutationReason()
 	disabled := reason != ""
@@ -1109,6 +1111,8 @@ func (a *app) conflictToolbar(c *ui.Context, theme *ui.Theme) {
 		a.conflictSidesToolbar(c, theme)
 		return
 	}
+	a.smallToolbarActions = true
+	defer func() { a.smallToolbarActions = false }()
 	state := a.conflictState
 	count := len(state.regions)
 	region, hasRegion := state.current()
@@ -1153,7 +1157,7 @@ func (a *app) conflictToolbar(c *ui.Context, theme *ui.Theme) {
 			} else {
 				ui.Row(c).AlignItems(ui.Center).Gap(6).Label(tr("Hunk") + " group").Children(func() {
 					renderActionControl(c, actionControl{
-						label: "Hunk", visibleLabel: "Hunk", icon: historyIcon,
+						label: "Hunk", visibleLabel: "Hunk", icon: historyIcon, small: true,
 						description: "Show this action group with labels and unavailable reasons", menu: navigation,
 					}, !tiny)
 					statusBadge()

@@ -77,10 +77,16 @@ func actionPresentationSize(t *testing.T, h *harness, label, style string, width
 		// icons; opening Apply supplies their visible labels and descriptions.
 		style = conflictActionStyleIcons
 	}
+	// The conflict toolbar draws its icons one size down; the diff-hunk actions
+	// keep the established compact size.
+	iconWidth := float32(34)
+	if strings.HasPrefix(label, "Use ") || strings.HasSuffix(label, " conflict") || label == "Restore initial conflict" {
+		iconWidth = 28
+	}
 	switch style {
 	case conflictActionStyleIcons:
-		if bounds.W != 34 {
-			t.Fatalf("icons %q width = %.1f, want the established 34 DIP", label, bounds.W)
+		if bounds.W != iconWidth {
+			t.Fatalf("icons %q width = %.1f, want %.0f DIP", label, bounds.W, iconWidth)
 		}
 	case conflictActionStyleIconsLabels, conflictActionStyleGuided:
 		if bounds.W <= 34 {

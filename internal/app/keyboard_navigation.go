@@ -35,6 +35,12 @@ func (a *app) keyboardPane(c *ui.Context, id string, e ui.Element) ui.Element {
 		case ui.InputPointerDown:
 			a.keyboardFocusVisible = false
 		}
+		switch ev.Kind {
+		case ui.InputPointerDown:
+			a.lastInputPointer = true
+		case ui.InputKeyDown:
+			a.lastInputPointer = false
+		}
 	}).DrawOver(func(p *ui.Painter, r ui.Rect) {
 		if focused && a.keyboardFocusVisible {
 			p.Stroke(r, accent.Alpha(0.8), 4, 1)
@@ -119,9 +125,9 @@ func (a *app) keyboardList(c *ui.Context, s *ui.ListState, n int) ui.Element {
 		e.PopoverMenu(func(m *ui.Menu) { a.keyboardListMenu(c, s, m) })
 	}
 	if !a.settings.DisableShortcuts {
-		a.onElementShortcut(e, 0, ui.KeyJ, shortcut("list/"+id+"/next-j", "j", tr("Move through a list")), func() { a.moveKeyboardList(s, n, 1) })
-		a.onElementShortcut(e, 0, ui.KeyK, shortcut("list/"+id+"/previous-k", "k", tr("Move through a list")), func() { a.moveKeyboardList(s, n, -1) })
-		a.onElementSubmit(e, shortcut("list/"+id+"/activate", "Enter", tr("Open the chosen item")), func() {
+		a.onElementShortcut(e, 0, ui.KeyJ, shortcut("list/"+id+"/next-j", "j", trf("Move down in %s", tr(keyboardPaneLabel(id)))), func() { a.moveKeyboardList(s, n, 1) })
+		a.onElementShortcut(e, 0, ui.KeyK, shortcut("list/"+id+"/previous-k", "k", trf("Move up in %s", tr(keyboardPaneLabel(id)))), func() { a.moveKeyboardList(s, n, -1) })
+		a.onElementSubmit(e, shortcut("list/"+id+"/activate", "Enter", trf("Open the chosen item in %s", tr(keyboardPaneLabel(id)))), func() {
 			if s.Selected != nil && *s.Selected < 0 && n > 0 {
 				*s.Selected = 0
 				if a.keyboardMoved == nil {
@@ -131,8 +137,40 @@ func (a *app) keyboardList(c *ui.Context, s *ui.ListState, n int) ui.Element {
 			}
 			a.keyboardEnter(id)
 		})
+		a.registerPaneSideKeys(e, id)
 	}
 	return e
+}
+
+// paneReturnsToSidebar are the panes where Left goes back to the workspace
+// sidebar. Panes whose rows expand and collapse with the arrows keep them.
+var paneReturnsToSidebar = map[string]bool{
+	"commits": true, "branches": true, "remotes": true, "stashes": true,
+	"tags": true, "worktrees": true, "submodules": true, "reflog": true,
+	"overview": true, "changes-empty": true,
+}
+
+// registerPaneSideKeys lets Right take the focus from the workspace sidebar
+// into the page it chose, and Left bring it back.
+func (a *app) registerPaneSideKeys(e ui.Element, id string) {
+	switch {
+	case id == "sidebar":
+		a.onElementShortcut(e, 0, ui.KeyRight, shortcut("sidebar/enter-page", "Right", tr("Move into the page")), func() {
+			// Only into the page itself: past it lie the window's toolbar and
+			// status bar, which are not where Right should lead.
+			panes := a.visibleKeyboardPanes()
+			if at := slices.IndexFunc(panes, func(p keyboardPane) bool { return p.id == "sidebar" }); at >= 0 && at+1 < len(panes) {
+				if next := panes[at+1].id; next != "status" && next != "toolbar" {
+					a.cycleKeyboardPaneFrom("sidebar", 1)
+				}
+			}
+		})
+	case (paneReturnsToSidebar[id] || (!a.fileTreeMode && (id == "changes" || id == "staged" || id == "conflicts"))) && !a.navPaneCollapsed:
+		a.onElementShortcut(e, 0, ui.KeyLeft, shortcut("page/back-to-sidebar", "Left", tr("Move to the workspace sidebar")), func() {
+			a.keyboardFocusVisible = true
+			a.keyboardFocus = "sidebar"
+		})
+	}
 }
 
 func (a *app) moveKeyboardList(s *ui.ListState, n, delta int) {
@@ -273,6 +311,9 @@ func (a *app) primaryKeyboardPane() string {
 	}
 	switch a.workspaceTab {
 	case sectionChanges:
+		if !slices.ContainsFunc(a.changeRows, func(r changeRow) bool { return r.isFile() }) {
+			return "changes-empty"
+		}
 		if len(a.mergeRows) > 0 && a.mergeExpanded {
 			return "conflicts"
 		}
@@ -465,12 +506,15 @@ func (a *app) keyboardDiffViewerWithID(c *ui.Context, state *editor.DiffState, o
 			a.onElementShortcut(e, 0, ui.KeyA, shortcut("diff/add-custom-patch-hunk", "A", tr("Add hunk")), a.addCustomPatchCurrentHunk)
 			a.onElementShortcut(e, ui.Shift, ui.KeyB, shortcut("diff/review-custom-patch", "Shift+B", tr("Review Custom Patch")), a.openCustomPatchBuilder)
 		}
-		for _, command := range diffKeyboardCommands() {
+		keys := a.keyResolution()
+		for i, command := range diffKeyboardCommands() {
 			if command.selection && !selectable || command.changesHunk && !changesHunks {
 				continue
 			}
-			command := command
-			a.onElementShortcut(e, command.mods, command.key, shortcut("diff/"+command.label, command.keys, tr(command.label)), func() { command.run(a, state) })
+			command, ref := command, keyCommandRefs()[keyRefsGit+i]
+			for _, b := range keys.byID[ref.id] {
+				a.onElementShortcut(e, b.mods, b.key, shortcut("diff/"+command.label, keyDefinitionChord(ref, b), tr(command.label)), func() { command.run(a, state) })
+			}
 		}
 	}
 
@@ -513,6 +557,10 @@ func keyboardPaneLabel(id string) string {
 		return "Files"
 	case "code-results":
 		return "Search results"
+	case "overview":
+		return "Overview"
+	case "changes-empty":
+		return "Changes"
 	}
 	return "Workspace"
 }
@@ -704,5 +752,15 @@ func (a *app) keyboardPanelTabs(id string, e ui.Element) ui.Element {
 	}
 	e.OnShortcut(0, ui.KeyTab, func() { a.cycleKeyboardPaneFrom(id, 1) })
 	e.OnShortcut(ui.Shift, ui.KeyTab, func() { a.cycleKeyboardPaneFrom(id, -1) })
+	return e
+}
+
+// changesEmptyPane makes the Changes page's empty state a pane of its own, so
+// the focus can enter the page by keyboard whether or not there are files.
+func (a *app) changesEmptyPane(c *ui.Context, column ui.Element) ui.Element {
+	e := a.keyboardPanelTabs("changes-empty", a.keyboardPane(c, "changes-empty", column.Focusable().Label(tr("Changes"))))
+	if !a.settings.DisableShortcuts {
+		a.registerPaneSideKeys(e, "changes-empty")
+	}
 	return e
 }

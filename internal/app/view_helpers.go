@@ -223,6 +223,16 @@ func compactTextButton(button ui.Element) ui.Element {
 	return button.Height(26).Padding(2, 8).Center()
 }
 
+// smallIconButton and smallTextButton are one size below the compact pair, for
+// a dense strip such as the conflict toolbar.
+func smallIconButton(button ui.Element) ui.Element {
+	return button.Size(28, 24).Padding(0).Center()
+}
+
+func smallTextButton(button ui.Element) ui.Element {
+	return button.Height(24).Padding(1, 6).Center()
+}
+
 // flatToggleIconButton keeps a view mode's active state visible and exposes
 // it as a pressed toggle to assistive technology.
 func flatToggleIconButton(c *ui.Context, label, tooltip string, icon *ui.SVG, size, pad float32, active bool, run func()) ui.Element {

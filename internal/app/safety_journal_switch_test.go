@@ -44,7 +44,7 @@ func TestRecoveryDialogSwitchTurnsTheSafetyJournalOnAndOff(t *testing.T) {
 	if saved := loadAppSettings(h.app.pathUserData); !saved.EnableSafetyJournal {
 		t.Fatal("turning the journal on was not saved")
 	}
-	if h.tester.HasText("The safety journal is off. New actions are not backed up and cannot be undone.") {
+	if h.tester.HasText("The safety journal is off. Checkout, merge and similar actions are not backed up and cannot be undone. Changes-page actions still can.") {
 		t.Fatal("the off notice stayed after turning the journal on")
 	}
 
@@ -58,7 +58,7 @@ func TestRecoveryDialogSwitchTurnsTheSafetyJournalOnAndOff(t *testing.T) {
 	if saved := loadAppSettings(h.app.pathUserData); saved.EnableSafetyJournal {
 		t.Fatal("turning the journal off was not saved")
 	}
-	if !h.tester.HasText("The safety journal is off. New actions are not backed up and cannot be undone.") {
+	if !h.tester.HasText("The safety journal is off. Checkout, merge and similar actions are not backed up and cannot be undone. Changes-page actions still can.") {
 		t.Fatalf("the dialog does not say the journal is off: %q", h.texts())
 	}
 }

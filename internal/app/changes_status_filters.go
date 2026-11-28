@@ -170,7 +170,7 @@ func (a *app) emptyChangesFilterResult(c *ui.Context) {
 	if strings.TrimSpace(a.fileSearch) != "" {
 		message = tr("No files match your search or filters")
 	}
-	ui.Column(c).Grow(1).Center().Gap(10).Padding(18).Children(func() {
+	a.changesEmptyPane(c, ui.Column(c).Grow(1).Center().Gap(10).Padding(18)).Children(func() {
 		ui.Icon(c, filterIcon).FontSize(24).TextColor(c.Theme().TextMuted)
 		ui.Text(c, message).TextAlign(ui.Center).Bold()
 		if ui.Button(c, tr("Clear filters")).Clicked() {

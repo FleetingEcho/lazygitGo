@@ -18,7 +18,7 @@ func (a *app) openFailedCommand(target *commandLogFailureTarget) {
 		if entry.ID() != target.id {
 			continue
 		}
-		a.commandLogUser = entry.Origin == repository.CommandOriginUser
+		a.selectCommandLogSectionOf(entry)
 		selected := *target
 		a.commandLogReveal = &selected
 		return
@@ -74,6 +74,7 @@ func (a *app) openCommandLog() {
 	a.commandLogVisible.Store(true)
 	a.commandLogReveal = nil
 	a.commandLogUser = false
+	a.commandLogKeys = false
 	a.commandLogQuery = ""
 	a.commandLogExpanded = nil
 	a.resetCommandLogFilters()

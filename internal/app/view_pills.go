@@ -233,8 +233,8 @@ func (a *app) branchBadge(c *ui.Context, name string, worktree bool) {
 		color = theme.Success
 	}
 	ui.Row(c).AlignItems(ui.Center).Gap(4).Padding(0, 8).MinWidth(0).MaxWidth(300).Shrink(1).Radius(9).
-		Background(color.Alpha(0.15)).Border(1, color.Alpha(0.45)).Tooltip(name).Children(func() {
-		ui.Icon(c, branchIcon).FontSize(11).TextColor(color).Shrink(0)
-		ui.Text(c, name).MinWidth(0).Shrink(1).SingleLine().Bold().FontSize(theme.FontSize - 2).TextColor(color)
+		Background(color.Alpha(0.07)).Border(1, color.Alpha(0.25)).Tooltip(name).Children(func() {
+		ui.Icon(c, branchIcon).FontSize(11).TextColor(color.Alpha(0.75)).Shrink(0)
+		ui.Text(c, name).MinWidth(0).Shrink(1).SingleLine().FontSize(theme.FontSize - 2).TextColor(color.Alpha(0.9))
 	})
 }

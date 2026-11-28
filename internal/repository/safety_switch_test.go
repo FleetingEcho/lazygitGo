@@ -20,9 +20,11 @@ func journalCounts(t *testing.T, session FullSession) (operations, snapshots int
 	return len(records), len(points)
 }
 
-// With the safety journal off, the actions still do their work but take no
-// recovery point and add no journal entry.
-func TestActionsRunWithoutRecoveryPointsWhenTheSafetyJournalIsOff(t *testing.T) {
+// With the safety journal off, the actions beyond the Changes page (apply and
+// drop a stash, delete a branch) take no recovery point and add no journal
+// entry. What is done from the Changes page (stash, discard) is still recorded:
+// that work exists nowhere else.
+func TestOnlyActionsBeyondTheChangesPageRunUnrecordedWhenTheSafetyJournalIsOff(t *testing.T) {
 	dir, session := recoveryRepository(t)
 	SetSafetyJournalEnabled(false)
 	ctx := context.Background()
@@ -70,8 +72,26 @@ func TestActionsRunWithoutRecoveryPointsWhenTheSafetyJournalIsOff(t *testing.T) 
 	if out := gitOutput(t, dir, "branch", "--list", "topic"); out != "" {
 		t.Fatalf("the branch was not deleted: %q", out)
 	}
-	if operations, snapshots := journalCounts(t, session); operations != 0 || snapshots != 0 {
-		t.Fatalf("a journal-off run left %d journal entries and %d recovery points", operations, snapshots)
+	records, err := session.Operations(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kinds := map[string]int{}
+	for _, record := range records {
+		kinds[record.Kind]++
+	}
+	for _, kind := range []string{OperationStashApply, OperationStashDrop, OperationBranchDelete} {
+		if kinds[kind] != 0 {
+			t.Fatalf("journal off but %s was recorded (%v)", kind, kinds)
+		}
+	}
+	if kinds[OperationStashSave] != 1 || kinds[OperationDiscard] != 2 {
+		t.Fatalf("Changes-page actions must be recorded with the journal off: %v", kinds)
+	}
+	for _, record := range records {
+		if (record.Kind == OperationDiscard || record.Kind == OperationStashSave) && !record.CanUndo() {
+			t.Fatalf("%s cannot be undone with the journal off: %#v", record.Kind, record)
+		}
 	}
 }
 

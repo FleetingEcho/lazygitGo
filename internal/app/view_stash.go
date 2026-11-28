@@ -467,10 +467,10 @@ func (a *app) confirmDiscardStashFile(stash repository.Stash, file repository.Co
 // runs at once; discarding rewrites the saved work without the file, so it
 // joins every discard path in asking first.
 func (a *app) stashFileMenu(m *ui.Menu, stash repository.Stash, file repository.CommitFile, services ui.Services) {
-	if m.Item(tr("Apply this file")).Shortcut(0, ui.KeySpace).Disabled(a.actionBusy).Chosen() {
+	if m.Item(tr("Apply this file")).Shortcut(a.menuKey("Historical files", 0, ui.KeySpace)).Disabled(a.actionBusy).Chosen() {
 		a.applyStashFile(stash, file)
 	}
-	if m.Item(tr("Discard this file")).Shortcut(0, ui.KeyD).Disabled(a.actionBusy).Chosen() {
+	if m.Item(tr("Discard this file")).Shortcut(a.menuKey("Historical files", 0, ui.KeyD)).Disabled(a.actionBusy).Chosen() {
 		a.confirmDiscardStashFile(stash, file)
 	}
 	m.Separator()
@@ -505,11 +505,11 @@ func (a *app) stashRowMenu(m *ui.Menu, row ui.ListRow) {
 	if !ok {
 		return
 	}
-	if m.Item(tr("Apply to working tree")).Shortcut(0, ui.KeySpace).Disabled(a.actionBusy).Chosen() {
+	if m.Item(tr("Apply to working tree")).Shortcut(a.menuKey("Stash", 0, ui.KeySpace)).Disabled(a.actionBusy).Chosen() {
 		a.selectStashRow(row.Index)
 		a.applyStash(stash)
 	}
-	if m.Item(tr("Pop (apply and drop)")).Shortcut(0, ui.KeyG).Disabled(a.actionBusy).Chosen() {
+	if m.Item(tr("Pop (apply and drop)")).Shortcut(a.menuKey("Stash", 0, ui.KeyG)).Disabled(a.actionBusy).Chosen() {
 		a.selectStashRow(row.Index)
 		a.confirmStashMutationFor(stash, true)
 	}
@@ -519,7 +519,7 @@ func (a *app) stashRowMenu(m *ui.Menu, row ui.ListRow) {
 		a.stashRename = stash.Name
 		a.showStashRenameForm = true
 	}
-	if m.Item(tr("Drop")).Shortcut(0, ui.KeyD).Disabled(a.actionBusy).Chosen() {
+	if m.Item(tr("Drop")).Shortcut(a.menuKey("Stash", 0, ui.KeyD)).Disabled(a.actionBusy).Chosen() {
 		a.selectStashRow(row.Index)
 		a.confirmStashMutationFor(stash, false)
 	}

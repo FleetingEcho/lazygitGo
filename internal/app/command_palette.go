@@ -900,8 +900,8 @@ func (s *shell) commandPaletteRow(c *ui.Context, candidate commandCandidate, sel
 			})
 			// Every row has the same height, so the action hint takes the
 			// chord's line while it shows.
-			if candidate.Chord != "" && !hinted {
-				ui.Text(c, candidate.Chord).FontSize(theme.FontSize - 2).TextColor(theme.Accent).SingleLine()
+			if chord := s.paletteChord(candidate); chord != "" && !hinted {
+				ui.Text(c, chord).FontSize(theme.FontSize - 2).TextColor(theme.Accent).SingleLine()
 			}
 		})
 	})
@@ -1240,4 +1240,54 @@ func paletteModeHint(c *ui.Context, mode paletteMode) {
 				})
 		})
 	}
+}
+
+// paletteChord is the key shown beside a palette command: the one the user
+// chose when the command has a customizable key, the catalog's otherwise.
+func (s *shell) paletteChord(candidate commandCandidate) string {
+	a := s.activeApp()
+	if a == nil {
+		return candidate.Chord
+	}
+	id := string(candidate.ID)
+	switch candidate.ID {
+	case commandOpenSettings:
+		id = "global/settings"
+	case commandOpenHelp:
+		id = "global/shortcuts-all"
+	case commandOpenRefresh:
+		id = "global/refresh"
+	case commandOpenFetch:
+		id = "git/Changes/Fetch from the remotes"
+	case commandOpenPull:
+		id = "git/Everywhere/Pull from the upstream branch"
+	case commandOpenPush:
+		id = "git/Everywhere/Push to the remote"
+	case commandCommitStaged:
+		id = "git/Changes/Write a commit message"
+	case commandOpenLog:
+		id = "global/command-log"
+	case "commands/run":
+		id = "global/shell-prompt"
+	case "changes/hunk-stage-stage-or-unstage":
+		id = "diff/Stage or unstage the current diff hunk"
+	case "changes/hunk-discard":
+		id = "diff/Discard the current working-tree diff hunk after confirmation"
+	case "changes/hunk-next":
+		id = "diff/Go to the next diff hunk"
+	case "changes/hunk-previous":
+		id = "diff/Go to the previous diff hunk"
+	}
+	ref, ok := keyCommandRefByID(id)
+	if !ok {
+		return candidate.Chord
+	}
+	bound := a.keysOf(id)
+	if len(bound) == 0 {
+		return ""
+	}
+	if len(bound) == 1 && bound[0] == ref.def {
+		return candidate.Chord
+	}
+	return boundKeyLabel(bound[0])
 }

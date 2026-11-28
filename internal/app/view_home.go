@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	pickerHeaderHeight   float32 = 76
+	pickerHeaderHeight   float32 = 60
 	pickerFooterHeight   float32 = 32
 	pickerContentWidth   float32 = 1200
 	pickerSplitMinWidth  float32 = 780
@@ -99,9 +99,8 @@ func (a *app) pickerHeaderView(c *ui.Context, hasHistory, wide, split bool) {
 	theme := c.Theme()
 	ui.Row(c).FillWidth().Height(pickerHeaderHeight).Shrink(0).Padding(0, 20).
 		AlignItems(ui.Center).Gap(10).Children(func() {
-		ui.Box(c).Size(44, 44).Center().Shrink(0).Children(func() {
-			appLogo(c, 44)
-		})
+		// The icon already sits at the left of the tab bar above, which is also
+		// the Home button, so the header carries the name alone.
 		ui.Column(c).Gap(2).Grow(1).MinWidth(0).Children(func() {
 			ui.Text(c, appName).FontSize(18).Bold().SingleLine()
 			ui.Text(c, tr("A native Git client, built on Lazygit")).
@@ -217,7 +216,7 @@ func (a *app) pickerLauncher(c *ui.Context, split, empty bool) {
 		ui.Column(c).AlignItems(align).Gap(8).Children(func() {
 			ui.Text(c, strings.ToUpper(tr("Workspace"))).FontSize(10).LetterSpacing(1.5).
 				Bold().TextColor(theme.TextMuted)
-			ui.Text(c, tr("Open a workspace.")).FontSize(titleSize).Bold()
+			ui.Text(c, tr("Open a workspace")).FontSize(titleSize).Bold()
 			ui.Text(c, tr("Pick up where you left off, or start something new.")).
 				FontSize(14).TextAlign(align).TextColor(theme.TextMuted)
 		})
@@ -307,17 +306,31 @@ func (a *app) pickerPathView(c *ui.Context, editorMode, split bool) {
 					Label(tr(label)).Placeholder(tr(placeholder)).Bind(&a.pickerPathFocus).AutoFocus().
 					Grow(1).MinWidth(0).Height(38).OnSubmit(a.openFromPicker)
 			})
-			browse := ui.PrimaryButton(c.Key("workspace-browse"), "").
-				Label(tr("Browse files")).Tooltip(tr("Choose a folder — it opens once you pick it")).
+			// A solid accent fill is harsh (saturated orange on white, bright blue
+			// on dark), so the button is a tint of the accent with a matching
+			// outline. On dark the tint is stronger: a faint one sinks into the
+			// panel, and this is the page's main action.
+			fill, line, hover := float32(0.14), float32(0.5), float32(0.24)
+			if theme.Dark {
+				fill, line, hover = 0.30, 0.75, 0.42
+			}
+			browse := ui.Button(c.Key("workspace-browse"), "").
+				Background(theme.Accent.Alpha(fill)).Border(1, theme.Accent.Alpha(line))
+			browse.Label(tr("Browse folder")).Tooltip(tr("Choose a folder — it opens once you pick it")).
 				Height(44).Padding(0, 18).Radius(8).Center().Gap(9)
+			if browse.Hovered() {
+				browse.Background(theme.Accent.Alpha(hover))
+			}
 			if stack {
 				browse.FillWidth()
 			} else {
 				browse.MinWidth(162)
 			}
 			browse.Children(func() {
-				ui.Icon(c, folderIcon).FontSize(16)
-				ui.Text(c, tr("Browse files")).Bold().SingleLine()
+				icon := ui.Icon(c, folderIcon).FontSize(16)
+				text := ui.Text(c, tr("Browse folder")).Bold().SingleLine()
+				icon.TextColor(theme.Accent)
+				text.TextColor(theme.Text)
 			}).OnClick(a.browse)
 		})
 		ui.Row(c).AlignItems(ui.Center).Gap(4).Children(func() {

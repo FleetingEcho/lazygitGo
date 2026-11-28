@@ -53,6 +53,21 @@ func keyboardCommands() []keyboardCommand {
 		{"Changes", "I", "Exclude file locally", ui.Shift, ui.KeyI, func(a *app) { a.ignoreSelectedFile(true) }},
 		{"Changes", "d", "Discard the chosen file's changes", 0, ui.KeyD, (*app).confirmDiscardSelected},
 		{"Changes", "b", "Blame the chosen file", 0, ui.KeyB, (*app).beginBlame},
+		{"Changes", "e", "Open the chosen file in the built-in editor", 0, ui.KeyE, func(a *app) {
+			if change, ok := a.selectedChange(); ok {
+				a.openGitFileInBuiltInEditor(a.snapshot.Root, change.file.Path)
+			}
+		}},
+		{"Changes", "y", "Copy the chosen file's relative path", 0, ui.KeyY, func(a *app) {
+			if change, ok := a.selectedChange(); ok {
+				a.copyToClipboard("relative path", change.file.Path)
+			}
+		}},
+		{"Changes", "Y", "Copy the chosen file's absolute path", ui.Shift, ui.KeyY, func(a *app) {
+			if change, ok := a.selectedChange(); ok {
+				a.copyToClipboard("absolute path", a.repositoryPath(change.file.Path))
+			}
+		}},
 		{"Changes", "r", "Mark the chosen file reviewed or unreviewed", 0, ui.KeyR, (*app).toggleSelectedReviewed},
 		{"Changes", "R", "Go to the next unreviewed file", ui.Shift, ui.KeyR, (*app).selectNextUnreviewed},
 		{"Changes", "Alt+J", "Go to the next changed file", ui.Alt, ui.KeyJ, func(a *app) { a.changedFileNavigation(1) }},
@@ -60,6 +75,11 @@ func keyboardCommands() []keyboardCommand {
 		{"History and graph", "Ctrl+Space", "Toggle batch selection", ui.Ctrl, ui.KeySpace, (*app).toggleSelectedCommitForBatch},
 		{"History and graph", "Ctrl+B", "Add all files from the chosen commit to Custom Patch", ui.Ctrl, ui.KeyB, (*app).addSelectedCustomPatchCommit},
 		{"History and graph", "B", "Review Custom Patch", ui.Shift, ui.KeyB, (*app).openCustomPatchBuilder},
+		{"History and graph", "y", "Copy the chosen commit's hash", 0, ui.KeyY, func(a *app) {
+			if commit, ok := a.selectedVisibleCommit(); ok {
+				a.copyToClipboard("commit hash", commit.Hash)
+			}
+		}},
 		{"History and graph", "e", "Edit commit (pause rebase)", 0, ui.KeyE, func(a *app) {
 			if c, ok := a.selectedVisibleCommit(); ok {
 				a.confirmEditCommit(c)
@@ -113,6 +133,11 @@ func keyboardCommands() []keyboardCommand {
 			}
 		}},
 		{"Branches", "Space", "Check out the chosen branch", 0, ui.KeySpace, (*app).checkoutSelectedBranch},
+		{"Branches", "y", "Copy the chosen branch's name", 0, ui.KeyY, func(a *app) {
+			if branch, ok := a.branchAt(a.selectedBranchRow); ok {
+				a.copyToClipboard("branch name", branch.Name)
+			}
+		}},
 		{"Branches", "n", "Create a branch", 0, ui.KeyN, (*app).beginNewBranch},
 		{"Branches", "M", "Merge into current", ui.Shift, ui.KeyM, (*app).confirmMergeSelectedBranch},
 		{"Branches", "f", "Fast-forward", 0, ui.KeyF, func(a *app) {
@@ -267,10 +292,11 @@ func (a *app) registerCustomCommandKeys(c *ui.Context) {
 }
 
 func (a *app) registerGitCommands(c *ui.Context) {
-	if c.FocusTakesText() || a.editorOnlyWorkspace() {
+	if c.FocusTakesText() || a.editorOnlyWorkspace() || a.keyEdit.recording != "" {
 		return
 	}
 	group := a.keyboardActionGroup(c)
+	a.keyServices = c.Services()
 	// The blame view is a read-only report on one file. While it is open the
 	// keys that act on the chosen file (Space to stage, D to discard, I to
 	// ignore, and the rest of the Changes commands) must not fire through it,
@@ -281,25 +307,38 @@ func (a *app) registerGitCommands(c *ui.Context) {
 			id: "git/Changes/Close blame", chord: "Esc", label: tr("Close blame"),
 		}, a.closeBlame)
 	}
-	for _, command := range keyboardCommands() {
-		if blameOpen && command.group == "Changes" {
-			continue
+	keys := a.keyResolution()
+	commands, refs := keyboardCommands(), keyCommandRefs()
+	// An action of the focused scope takes a key before an Everywhere action
+	// on the same key: a selected tag's Push tag keeps its P over global push.
+	scoped := map[boundKey]bool{}
+	for i, command := range commands {
+		if command.group == group && group != "Everywhere" {
+			for _, b := range keys.byID[refs[i].id] {
+				scoped[b] = true
+			}
 		}
-		// A selected tag's publish action takes the same P as global push.
-		if command.group == "Everywhere" && group == "Tags" && command.key == ui.KeyP && command.mods == ui.Shift {
+	}
+	for i, command := range commands {
+		if blameOpen && command.group == "Changes" {
 			continue
 		}
 		if command.group != "Everywhere" && command.group != group {
 			continue
 		}
-		command := command
-		definition := shortcutDefinition{
-			id:    "git/" + command.group + "/" + command.label,
-			chord: command.keys, label: tr(command.label),
+		command, ref := command, refs[i]
+		for _, b := range keys.byID[ref.id] {
+			if command.group == "Everywhere" && scoped[b] {
+				continue
+			}
+			definition := shortcutDefinition{
+				id:    "git/" + command.group + "/" + command.label,
+				chord: keyDefinitionChord(ref, b), label: tr(command.label),
+			}
+			a.onShortcut(c, b.mods, b.key, definition, func() {
+				command.run(a)
+			})
 		}
-		a.onShortcut(c, command.mods, command.key, definition, func() {
-			command.run(a)
-		})
 	}
 }
 
@@ -317,7 +356,7 @@ func (a *app) copyKeyboardCommits() {
 		return
 	}
 	a.keyboardCopied = append([]repository.Commit(nil), selected...)
-	a.notify("success", "Copied commits for cherry-pick", tr("Press Shift+V in History to cherry-pick the copied commits."))
+	a.notify("success", "Copied commits for cherry-pick", a.pasteCommitsHint())
 }
 
 func (a *app) pasteKeyboardCommits() {
@@ -334,4 +373,29 @@ func (a *app) pasteKeyboardCommits() {
 			return requireHistorySession(s).CherryPickCommits(ctx, commits)
 		}, nil)
 	}})
+}
+
+// pasteCommitsHint names the key that cherry-picks the copied commits.
+func (a *app) pasteCommitsHint() string {
+	for i, command := range keyboardCommands() {
+		if command.label != "Cherry-pick copied commits" {
+			continue
+		}
+		ref := keyCommandRefs()[i]
+		bound := a.keysOf(ref.id)
+		switch {
+		case len(bound) == 1 && bound[0] == ref.def:
+			return tr("Press Shift+V in History to cherry-pick the copied commits.")
+		case len(bound) > 0:
+			return trf("Press %s in History to cherry-pick the copied commits.", boundKeyLabel(bound[0]))
+		}
+		return tr("Cherry-pick copied commits")
+	}
+	return tr("Press Shift+V in History to cherry-pick the copied commits.")
+}
+
+// copyToClipboard copies text for a keyboard command, which runs without the
+// frame's context; the services come from the frame that registered it.
+func (a *app) copyToClipboard(what, text string) {
+	a.notifyCopied(a.keyServices, what, text)
 }

@@ -265,6 +265,13 @@ type app struct {
 	keybindingsOpen        bool
 	keybindingsCurrentOnly bool
 	keybindingFilter       string
+	keyEdit                keyEditState
+	// lastInputPointer is true while the latest key or click in a pane was a
+	// click, so a click that activates something is not logged as a key press.
+	lastInputPointer bool
+	// keyServices are the toolkit services of the latest frame, for keyboard
+	// commands that need the clipboard.
+	keyServices ui.Services
 	// commandLogOpen shows every Git command the session ran and what it
 	// printed; commandLog is that record, nil until a repository opens.
 	// openExternalURL launches external URLs in the user's desktop browser,
@@ -295,7 +302,9 @@ type app struct {
 	// commandLogUser selects the user's commands instead of background Git.
 	// Query, status, source and time range narrow that section independently.
 	// The clock is replaceable only by deterministic real-geometry tests.
-	commandLogUser   bool
+	commandLogUser bool
+	// commandLogKeys narrows the user section to the keys pressed.
+	commandLogKeys   bool
 	commandLogQuery  string
 	commandLogStatus string
 	commandLogSource string
@@ -420,7 +429,10 @@ type app struct {
 	workspaceTab     int
 	cockpit          cockpitUIState
 	changeRequests   changeRequestsUIState
-	hostingAccess    hostingAccessUIState
+	// smallToolbarActions makes the buttons drawn through renderActionControl
+	// smaller while the conflict toolbar is being built.
+	smallToolbarActions bool
+	hostingAccess       hostingAccessUIState
 	// code owns the repository explorer, persistent editor documents and
 	// workspace search independently of the diff-specific file editor.
 	code codeState

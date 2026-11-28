@@ -16,5 +16,7 @@ func TestMain(m *testing.M) {
 		daemon.Handle(logrus.New().WithField("component", "git-editor-test"))
 		os.Exit(0)
 	}
-	os.Exit(m.Run())
+	code := m.Run()
+	cleanupConformanceRepo()
+	os.Exit(code)
 }

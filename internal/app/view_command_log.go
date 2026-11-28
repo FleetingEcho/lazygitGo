@@ -83,13 +83,16 @@ func (a *app) commandLogBody(c *ui.Context, entries []repository.CommandEntry) {
 		if !a.commandLogUser {
 			hint = tr("Git actions from lazygitGo appear in Background Git commands.")
 		}
+		if a.commandLogKeys {
+			hint = tr("Every key you press that runs an action is recorded here, with the action it ran.")
+		}
 		hasSectionEntries := false
 		origin := repository.CommandOriginGit
 		if a.commandLogUser {
 			origin = repository.CommandOriginUser
 		}
 		for _, entry := range a.commandLogEntries() {
-			if entry.Origin == origin {
+			if entry.Origin == origin && (!a.commandLogKeys || commandLogEntrySource(entry) == "keyboard") {
 				hasSectionEntries = true
 				break
 			}
@@ -188,6 +191,11 @@ func (a *app) commandLogEntrySourceText(entry repository.CommandEntry) string {
 	}
 	if repositoryName == "" {
 		repositoryName = tr("Current repository")
+	}
+	if entry.Shortcut != nil && entry.Shortcut.ID != "" {
+		// A key press names the action it ran, so the log of keys can be traced
+		// back to the action and not only the chord.
+		return tr("Key press") + " · " + entry.Shortcut.ID + " · " + repositoryName
 	}
 	return commandLogSourceLabel(commandLogEntrySource(entry)) + " · " + tr("Session") + " · " + repositoryName
 }

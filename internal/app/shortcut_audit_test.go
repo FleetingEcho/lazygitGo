@@ -141,7 +141,7 @@ func TestBuiltInShortcutLogsGlobalRefresh(t *testing.T) {
 	h := menuTestApp(t)
 	h.app.attachRepositoryCommandLog(repository.NewCommandLog())
 	h.press(t, ui.KeyF5)
-	openUserCommandLogForTest(t, h.app, h.tester)
+	openShortcutLogForTest(t, h.app, h.tester)
 	h.tester.Frame()
 	if !h.tester.HasText("F5") || !h.tester.HasText("Refresh the repository") {
 		t.Fatalf("the global refresh key was not recorded: %q", h.texts())
@@ -226,7 +226,7 @@ func TestShortcutNotificationDefaultOffDoesNotAcknowledge(t *testing.T) {
 	if h.tester.HasText("F5") {
 		t.Fatal("the default launch acknowledges shortcuts")
 	}
-	openUserCommandLogForTest(t, h.app, h.tester)
+	openShortcutLogForTest(t, h.app, h.tester)
 
 	if !h.tester.HasText("F5") || !h.tester.HasText("custom refresh key") {
 		t.Fatalf("the audit log lost the shortcut: %q", h.texts())

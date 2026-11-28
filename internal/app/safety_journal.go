@@ -34,12 +34,9 @@ func (a *app) notifyRepositorySuccess(message string, previous map[string]bool) 
 
 // notifyUndoable confirms a change the journal records and puts Undo on the
 // notice. The button asks for the latest change when pressed, not for a record
-// found now: the list on screen does not hold the new record yet. With the
-// journal off nothing was recorded, so there is nothing to offer.
+// found now: the list on screen does not hold the new record yet. Changes-page
+// actions are recorded whether or not the journal switch is on.
 func (a *app) notifyUndoable(title string) {
-	if !repository.SafetyJournalEnabled() {
-		return
-	}
 	a.pendingToasts = append(a.pendingToasts, appToast{
 		kind: "success", title: title, action: tr("Undo") + " (Ctrl+Z)", timeout: 6 * time.Second,
 		onAction: a.confirmUndo,
@@ -207,7 +204,7 @@ func (a *app) safetyJournalBody(c *ui.Context) {
 	}
 	if len(a.snapshot.Operations) == 0 {
 		if !a.safetyJournalEnabled() {
-			emptyJournalState(c, theme, "Nothing recorded yet", "Nothing is recorded while the safety journal is off.")
+			emptyJournalState(c, theme, "Nothing recorded yet", "Checkout, merge and similar actions are not recorded while the safety journal is off. Changes-page actions still are.")
 			return
 		}
 		emptyJournalState(c, theme, "Nothing recorded yet",

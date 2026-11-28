@@ -88,23 +88,23 @@ func hunkActionControlsForCatalog(a *app) []commandSpec {
 	}
 	mutation := func(*app) actionControl {
 		_, currentReason := a.hunkMutationAvailability()
-		return actionControl{label: label, shortcut: "s", description: "Change only the current diff hunk",
+		return actionControl{label: label, shortcut: a.keyText("diff/Stage or unstage the current diff hunk", "s"), description: "Change only the current diff hunk",
 			disabled: currentReason != "", disabledReason: currentReason, run: a.beginCurrentHunkAction}
 	}
 	discard := func(*app) actionControl {
 		currentStatus, currentReason := a.hunkMutationAvailability()
 		if currentStatus.staged {
-			return actionControl{label: "Discard hunk", shortcut: "d", disabled: true,
+			return actionControl{label: "Discard hunk", shortcut: a.keyText("diff/Discard the current working-tree diff hunk after confirmation", "d"), disabled: true,
 				disabledReason: "Unstage this hunk before discarding its working-tree changes.", run: a.confirmDiscardCurrentHunk}
 		}
-		return actionControl{label: "Discard hunk", shortcut: "d", description: "Discard the current hunk after confirmation; keep the index untouched",
+		return actionControl{label: "Discard hunk", shortcut: a.keyText("diff/Discard the current working-tree diff hunk after confirmation", "d"), description: "Discard the current hunk after confirmation; keep the index untouched",
 			disabled: currentReason != "", disabledReason: currentReason, run: a.confirmDiscardCurrentHunk}
 	}
 	navigation := func(direction int) func(*app) actionControl {
 		return func(*app) actionControl {
-			label, chord := "Previous hunk", "["
+			label, chord := "Previous hunk", a.keyText("diff/Go to the previous diff hunk", "[")
 			if direction > 0 {
-				label, chord = "Next hunk", "]"
+				label, chord = "Next hunk", a.keyText("diff/Go to the next diff hunk", "]")
 			}
 			reason := a.hunkNavigationDisabledReason(direction)
 			return actionControl{label: label, shortcut: chord, description: "Navigate the canonical diff hunks",

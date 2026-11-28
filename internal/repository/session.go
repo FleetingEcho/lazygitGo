@@ -1485,11 +1485,10 @@ func (s *gitSession) Discard(ctx context.Context, file File) error {
 	if file.HasMergeConflicts {
 		return fmt.Errorf("resolve merge conflicts before discarding %s", file.Path)
 	}
-	if !SafetyJournalEnabled() {
-		return s.discardFile(ctx, file)
-	}
+	// Discarding is never optional to back up: work that was never committed
+	// exists nowhere else, whatever the Safety Journal switch says.
 	_, record, err := s.captureAndBeginOperation(ctx, func(ctx context.Context) (WorkSnapshot, error) {
-		return s.captureWorkSnapshot(ctx, RecoverySnapshotKind, "Discard "+file.Path)
+		return s.captureChangesSnapshot(ctx, "Discard "+file.Path, fileNames(file))
 	}, OperationDiscard, "Discard "+file.Path, UndoRestoreWork)
 	if err != nil {
 		return err
@@ -1517,17 +1516,13 @@ func (s *gitSession) DiscardFiles(ctx context.Context, files []File) error {
 			return fmt.Errorf("resolve merge conflicts before discarding %s", file.Path)
 		}
 	}
-	if !SafetyJournalEnabled() {
-		for _, file := range files {
-			if err := s.discardFile(ctx, file); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
 	summary := fmt.Sprintf("Discard %d changes", len(files))
+	var targets []string
+	for _, file := range files {
+		targets = append(targets, fileNames(file)...)
+	}
 	_, record, err := s.captureAndBeginOperation(ctx, func(ctx context.Context) (WorkSnapshot, error) {
-		return s.captureWorkSnapshot(ctx, RecoverySnapshotKind, summary)
+		return s.captureChangesSnapshot(ctx, summary, targets)
 	}, OperationDiscard, summary, UndoRestoreWork)
 	if err != nil {
 		return err
@@ -2234,7 +2229,7 @@ func (s *gitSession) StashChanges(ctx context.Context, message string, includeUn
 			return fmt.Errorf("stash changes: %w", err)
 		}
 		return nil
-	})
+	}, s.changesCapture("Stash "+message, true))
 }
 
 func (s *gitSession) StashSelectedFiles(ctx context.Context, message string, files []File, includeUntracked bool) error {
@@ -2277,7 +2272,7 @@ func (s *gitSession) StashSelectedFiles(ctx context.Context, message string, fil
 			return fmt.Errorf("stash selected files: %w: %s", err, strings.TrimSpace(output))
 		}
 		return nil
-	})
+	}, s.changesCapture("Stash "+message, true))
 }
 
 // StashPatch constructs a native stash over HEAD and a temporary index holding
@@ -2298,7 +2293,7 @@ func (s *gitSession) StashPatch(ctx context.Context, message, patchText, removal
 	}
 	return s.withWorkspaceMutation(ctx, OperationStashSave, "Stash "+message, false, func() error {
 		return s.performStashPatch(ctx, message, patchText, removalPatch)
-	})
+	}, s.changesCapture("Stash "+message, true))
 }
 
 func (s *gitSession) performStashPatch(ctx context.Context, message, patchText, removalPatch string) error {
@@ -2369,7 +2364,7 @@ func (s *gitSession) StashStagedChanges(ctx context.Context, message string) err
 			return fmt.Errorf("stash staged changes: %w", err)
 		}
 		return nil
-	})
+	}, s.changesCapture("Stash "+message, true))
 }
 
 func (s *gitSession) ApplyStash(ctx context.Context, index int, pop bool) error {
@@ -3894,18 +3889,22 @@ func (s *gitSession) CommitHistoryOrder(ctx context.Context, revision string, fr
 		revision = "@{u}.." + revision
 	}
 	args := []string{"git", "rev-list", "--timestamp"}
+	// A single term that names a commit lists that commit first. The term is
+	// also searched as ordinary words below ("dead" is a hash prefix and prose).
+	var pinned []string
 	if len(search.Terms) == 1 && from.IsZero() && to.IsZero() && !search.Unpushed {
 		commits, matchedHash, err := s.searchCommitHash(ctx, CommitFilter{}, search.Terms[0], revision)
 		if matchedHash {
+			if err != nil {
+				return nil, err
+			}
 			author := strings.ToLower(search.Author)
-			var hashes []string
 			for _, commit := range commits {
 				if strings.Contains(strings.ToLower(commit.AuthorName), author) ||
 					strings.Contains(strings.ToLower(commit.AuthorEmail), author) {
-					hashes = append(hashes, commit.Hash)
+					pinned = append(pinned, commit.Hash)
 				}
 			}
-			return hashes, err
 		}
 	}
 	if len(search.Terms) > 0 || search.Author != "" {
@@ -3952,9 +3951,12 @@ func (s *gitSession) CommitHistoryOrder(ctx context.Context, revision string, fr
 	sort.SliceStable(entries, func(i, j int) bool {
 		return entries[i].time > entries[j].time
 	})
-	hashes := make([]string, len(entries))
-	for i, entry := range entries {
-		hashes[i] = entry.hash
+	hashes := make([]string, 0, len(pinned)+len(entries))
+	hashes = append(hashes, pinned...)
+	for _, entry := range entries {
+		if !slices.Contains(pinned, entry.hash) {
+			hashes = append(hashes, entry.hash)
+		}
 	}
 	return hashes, nil
 }
@@ -3996,6 +3998,10 @@ func (s *gitSession) searchCommits(ctx context.Context, filter CommitFilter) ([]
 		return nil, err
 	}
 	branch = s.qualifyCommitFilterBranch(branch)
+	// A query that names a commit puts it first, but is also an ordinary word:
+	// "dead" or "feed" is a valid hash prefix and prose in hundreds of messages.
+	// The message search below always runs, so neither reading hides the other.
+	var pinned []Commit
 	if commits, hashQuery, err := s.searchCommitHash(ctx, filter, query, branch); hashQuery {
 		if err != nil && s.isUnbornBranch(branch) {
 			return nil, nil
@@ -4013,20 +4019,29 @@ func (s *gitSession) searchCommits(ctx context.Context, filter CommitFilter) ([]
 			}
 			commits = matching
 		}
-		return commits, nil
+		pinned = commits
 	}
 
 	args := []string{"git", "log", fmt.Sprintf("--max-count=%d", filter.Limit), commitLogFormat}
-	if query != "" {
-		// A commit message is prose, so the words are matched literally and
-		// without regard to case rather than as a regular expression.
-		args = append(args, "--grep", query, "--fixed-strings", "--regexp-ignore-case")
+	author := strings.TrimSpace(filter.Author)
+	if query != "" || author != "" {
+		// A commit message and a name are prose, so the words are matched
+		// literally and without regard to case, never as a regular expression:
+		// "[Redacted]" or "J. Doe" must mean exactly those characters. The
+		// values are attached with "=" so one that begins with a dash ("--help",
+		// "--") is still a value and never a Git option.
+		args = append(args, "--fixed-strings", "--regexp-ignore-case")
 	}
-	if author := strings.TrimSpace(filter.Author); author != "" {
-		args = append(args, "--author", author, "--regexp-ignore-case")
+	if query != "" {
+		args = append(args, "--grep="+query)
+	}
+	if author != "" {
+		args = append(args, "--author="+author)
 	}
 	if !since.IsZero() {
-		args = append(args, "--since="+since.UTC().Format(time.RFC3339))
+		// As a filter, so a commit with a newer clock than its parent is still
+		// found: plain --since stops walking at the first old commit.
+		args = append(args, "--since-as-filter="+since.UTC().Format(time.RFC3339))
 	}
 	if !until.IsZero() {
 		args = append(args, "--until="+until.UTC().Format(time.RFC3339))
@@ -4049,7 +4064,30 @@ func (s *gitSession) searchCommits(ctx context.Context, filter CommitFilter) ([]
 		}
 		return nil, fmt.Errorf("search commits: %w", err)
 	}
-	return parseCommitLog(output), nil
+	return pinCommitsFirst(pinned, parseCommitLog(output), filter.Limit), nil
+}
+
+// pinCommitsFirst lists the commits a hash query named ahead of the message
+// matches, without repeating one, and keeps the result within limit.
+func pinCommitsFirst(pinned, rest []Commit, limit int) []Commit {
+	if len(pinned) == 0 {
+		return rest
+	}
+	merged := make([]Commit, 0, min(limit, len(pinned)+len(rest)))
+	seen := make(map[string]bool, len(pinned))
+	for _, commit := range pinned {
+		seen[commit.Hash] = true
+		merged = append(merged, commit)
+	}
+	for _, commit := range rest {
+		if !seen[commit.Hash] {
+			merged = append(merged, commit)
+		}
+	}
+	if len(merged) > limit {
+		merged = merged[:limit]
+	}
+	return merged
 }
 
 // isUnbornBranch recognizes only the checked-out symbolic branch whose ref
@@ -4095,29 +4133,17 @@ func (s *gitSession) searchCommitHash(ctx context.Context, filter CommitFilter, 
 	}
 
 	// An object can exist without belonging to the history being filtered.
-	// Excluding the selected refs leaves the commit itself in the count only
-	// when it is outside those refs.
-	args := []string{"git", "rev-list", "--count", hash, "--not"}
-	if branch != "" {
-		args = append(args, branch)
-	} else {
-		args = append(args, allUserHistoryArgs...)
-	}
-	historyCommand, commandErr := s.commandContext(ctx, args)
-	if commandErr != nil {
-		return nil, true, fmt.Errorf("search commits: %w", commandErr)
-	}
-	output, err = s.runWithOutputContext(ctx, historyCommand)
+	inHistory, err := s.commitInHistory(ctx, hash, branch)
 	if err != nil {
 		return nil, true, fmt.Errorf("search commits: %w", err)
 	}
-	if strings.TrimSpace(output) != "0" {
+	if !inHistory {
 		return nil, true, nil
 	}
 
-	args = []string{"git", "show", "--no-patch", commitLogFormat}
+	args := []string{"git", "show", "--no-patch", commitLogFormat}
 	if author := strings.TrimSpace(filter.Author); author != "" {
-		args = append(args, "--author", author, "--regexp-ignore-case")
+		args = append(args, "--fixed-strings", "--regexp-ignore-case", "--author="+author)
 	}
 	args = append(args, hash, "--")
 	output, err = s.cmd.New(args).RunWithOutput()
@@ -4125,6 +4151,49 @@ func (s *gitSession) searchCommitHash(ctx context.Context, filter CommitFilter, 
 		return nil, true, fmt.Errorf("search commits: %w", err)
 	}
 	return parseCommitLog(output), true, nil
+}
+
+// commitInHistory reports whether hash is reachable from branch, or from any
+// user ref when branch is empty. It asks Git for ancestry directly: counting
+// what "rev-list hash --not <refs>" leaves over is wrong on a history whose
+// commit dates run backwards (a clock that was behind), where Git's exclusion
+// walk stops early and reports commits that are in fact reachable.
+func (s *gitSession) commitInHistory(ctx context.Context, hash, branch string) (bool, error) {
+	reachable := func(args []string) (bool, error) {
+		command, err := s.commandContext(ctx, args)
+		if err != nil {
+			return false, err
+		}
+		_, err = s.runWithOutputContext(ctx, command)
+		if err == nil {
+			return true, nil
+		}
+		if code, ok := commandExitCode(err); ok && code == 1 {
+			return false, nil
+		}
+		return false, err
+	}
+	if branch != "" {
+		return reachable([]string{"git", "merge-base", "--is-ancestor", hash, branch})
+	}
+	command, err := s.commandContext(ctx, []string{"git", "for-each-ref", "--contains", hash, "--format=%(refname)"})
+	if err != nil {
+		return false, err
+	}
+	output, err := s.runWithOutputContext(ctx, command)
+	if err != nil {
+		return false, err
+	}
+	for _, ref := range strings.Fields(output) {
+		if !strings.HasPrefix(ref, "refs/tangit/") {
+			return true, nil
+		}
+	}
+	// A detached HEAD may hold a commit no ref does.
+	if s.headHasCommit() {
+		return reachable([]string{"git", "merge-base", "--is-ancestor", hash, "HEAD"})
+	}
+	return false, nil
 }
 
 // parseCommitLog reads the lines SearchCommits asked Git for.

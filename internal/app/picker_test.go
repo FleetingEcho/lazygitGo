@@ -35,7 +35,7 @@ func TestPickerRemoteActionsFollowThePathForm(t *testing.T) {
 	for _, stacked := range []bool{false, true} {
 		a.pickerStacked = stacked
 		tt.Frame()
-		browse, found := tt.Find("Browse files")
+		browse, found := tt.Find("Browse folder")
 		if !found {
 			t.Fatal("the repository path action is missing")
 		}
@@ -68,7 +68,7 @@ func TestPickerShowsOnlyTheLoadingPageWhileOpening(t *testing.T) {
 	}
 	tt.Frame()
 	texts := strings.Join(tt.Texts(), " ")
-	for _, gone := range []string{"Open a workspace.", "Browse files", "Recent repositories"} {
+	for _, gone := range []string{"Open a workspace", "Browse folder", "Recent repositories"} {
 		if strings.Contains(texts, gone) {
 			t.Fatalf("the picker still shows %q while opening: %v", gone, tt.Texts())
 		}
@@ -85,7 +85,7 @@ func TestPickerShowsOnlyTheLoadingPageWhileOpening(t *testing.T) {
 	if a.state != stateEmpty {
 		t.Fatalf("Cancel left state %v, want the picker", a.state)
 	}
-	if !strings.Contains(strings.Join(tt.Texts(), " "), "Open a workspace.") {
+	if !strings.Contains(strings.Join(tt.Texts(), " "), "Open a workspace") {
 		t.Fatalf("the picker did not come back after Cancel: %v", tt.Texts())
 	}
 
@@ -219,7 +219,7 @@ func TestPlainFolderCanBeLeftAlone(t *testing.T) {
 	if a.state != stateEmpty {
 		t.Fatalf("Not now changed the state: %v", a.state)
 	}
-	if !strings.Contains(strings.Join(tt.Texts(), " "), "Open a workspace.") {
+	if !strings.Contains(strings.Join(tt.Texts(), " "), "Open a workspace") {
 		t.Fatalf("the picker is gone: %v", tt.Texts())
 	}
 }
@@ -273,7 +273,7 @@ func TestClosingRepositoryReturnsToThePicker(t *testing.T) {
 		t.Fatalf("the closed repository's path survived: %q", h.app.path)
 	}
 	texts := strings.Join(h.texts(), " ")
-	for _, want := range []string{"Open a workspace.", "/work/project"} {
+	for _, want := range []string{"Open a workspace", "/work/project"} {
 		if !strings.Contains(texts, want) {
 			t.Errorf("the picker does not show %q after closing: %v", want, h.texts())
 		}

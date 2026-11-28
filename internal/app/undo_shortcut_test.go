@@ -401,13 +401,15 @@ func TestStageNoticeOffersUndoThatOpensTheCtrlZDialog(t *testing.T) {
 	}
 }
 
-func TestNoUndoNoticeWhileTheSafetyJournalIsOff(t *testing.T) {
+// Staging and the other Changes-page actions are recorded whatever the switch
+// says, so their notice offers Undo with the journal off too.
+func TestUndoNoticeIsOfferedForChangesActionsWhileTheSafetyJournalIsOff(t *testing.T) {
 	a := undoApp(t)
 	enabled := repository.SafetyJournalEnabled()
 	repository.SetSafetyJournalEnabled(false)
 	defer repository.SetSafetyJournalEnabled(enabled)
 	a.notifyUndoable("Staged x")
-	if len(a.pendingToasts) != 0 {
-		t.Fatalf("a notice offered Undo for a change that was not recorded: %#v", a.pendingToasts)
+	if len(a.pendingToasts) != 1 || a.pendingToasts[0].onAction == nil {
+		t.Fatalf("no Undo notice for a recorded Changes-page action: %#v", a.pendingToasts)
 	}
 }

@@ -73,7 +73,7 @@ func (a *app) submoduleRowMenu(m *ui.Menu, row ui.ListRow) {
 	if !ok {
 		return
 	}
-	if m.Item(tr("Initialize / update")).Shortcut(0, ui.KeyU).Disabled(a.actionBusy).Chosen() {
+	if m.Item(tr("Initialize / update")).Shortcut(a.menuKey("Submodules", 0, ui.KeyU)).Disabled(a.actionBusy).Chosen() {
 		a.selectSubmoduleRow(row.Index)
 		a.updateSelectedSubmodule()
 	}
@@ -94,7 +94,7 @@ func (a *app) submoduleRowMenu(m *ui.Menu, row ui.ListRow) {
 		a.syncSubmodules(nil)
 	}
 	m.Separator()
-	if m.Item(tr("Delete submodule")).Shortcut(0, ui.KeyD).Disabled(a.actionBusy).Chosen() {
+	if m.Item(tr("Delete submodule")).Shortcut(a.menuKey("Submodules", 0, ui.KeyD)).Disabled(a.actionBusy).Chosen() {
 		a.selectSubmoduleRow(row.Index)
 		a.confirmDeleteSubmodule(submodule)
 	}

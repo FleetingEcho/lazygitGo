@@ -33,11 +33,11 @@ func (a *app) commitFileMenu(m *ui.Menu, commit *repository.Commit, file reposit
 			a.openFileHistoryFrom(file.Path, *commit)
 		}
 	}
-	if commit != nil && a.customPatchActive() && m.Item(tr("Add file to Custom Patch")).Shortcut(ui.Ctrl, ui.KeyB).
+	if commit != nil && a.customPatchActive() && m.Item(tr("Add file to Custom Patch")).Shortcut(a.menuKey("Historical files", ui.Ctrl, ui.KeyB)).
 		Disabled(a.actionBusy || a.session == nil).Chosen() {
 		a.beginAddCustomPatchFile(*commit, file, nil)
 	}
-	if commit != nil && m.Item(tr("Restore this historical file")).Shortcut(ui.Shift, ui.KeyR).
+	if commit != nil && m.Item(tr("Restore this historical file")).Shortcut(a.menuKey("Historical files", ui.Shift, ui.KeyR)).
 		Disabled(a.actionBusy || a.session == nil).Chosen() {
 		a.confirmRestoreCommitFile(*commit, file)
 	}

@@ -90,7 +90,7 @@ func (s *gitSession) SearchHistoryChanges(ctx context.Context, query HistoryChan
 	}
 	args := []string{"rev-list", "--stdin", "--no-merges", "--max-count=" + strconv.Itoa(historyChangeWindow+1), "--skip=" + strconv.Itoa(cursor.offset)}
 	if !query.Since.IsZero() {
-		args = append(args, "--since="+query.Since.Format(time.RFC3339))
+		args = append(args, "--since-as-filter="+query.Since.Format(time.RFC3339))
 	}
 	if !query.Until.IsZero() {
 		args = append(args, "--until="+query.Until.Format(time.RFC3339))

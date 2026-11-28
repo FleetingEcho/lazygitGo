@@ -116,9 +116,8 @@ func (s *gitSession) mutateFile(ctx context.Context, kind, summary, path string,
 	}
 	unlock := s.lockWorktreeMutation()
 	defer unlock()
-	if !SafetyJournalEnabled() {
-		return mutate()
-	}
+	// Ignore and exclude rules are changes made from the Changes page, so they
+	// are recorded whatever the Safety Journal switch says.
 	before, readErr := s.fileService().ReadFile(path)
 	existed := readErr == nil
 	if readErr != nil && !os.IsNotExist(readErr) {

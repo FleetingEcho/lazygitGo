@@ -91,6 +91,18 @@ var keyDisplayNames = func() map[ui.Key]string {
 			names[key] = displayKeyName(name)
 		}
 	}
+	// Several spellings name one key; the iteration above would pick one at
+	// random, so the canonical one is set here.
+	for name, key := range map[string]ui.Key{
+		"enter": ui.KeyEnter, "escape": ui.KeyEscape, "delete": ui.KeyDelete,
+		"pageup": ui.KeyPageUp, "pagedown": ui.KeyPageDown,
+		"minus": ui.KeyMinus, "equal": ui.KeyEqual, "comma": ui.KeyComma,
+		"period": ui.KeyPeriod, "slash": ui.KeySlash, "backslash": ui.KeyBackslash,
+		"semicolon": ui.KeySemicolon, "quote": ui.KeyQuote,
+		"[": ui.KeyBracketLeft, "]": ui.KeyBracketRight, "backquote": ui.KeyBackquote,
+	} {
+		names[key] = displayKeyName(name)
+	}
 	for i := 0; i < 26; i++ {
 		names[ui.Key(int(ui.KeyA)+i)] = strings.ToUpper(string(rune('a' + i)))
 	}

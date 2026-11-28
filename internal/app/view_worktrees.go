@@ -481,7 +481,7 @@ func (a *app) worktreeRowMenu(m *ui.Menu, row ui.ListRow, services ui.Services) 
 		return
 	}
 	if !worktree.Current && !worktree.Missing {
-		if m.Item(tr("Open worktree")).Shortcut(0, ui.KeyO).Disabled(a.actionBusy).Chosen() {
+		if m.Item(tr("Open worktree")).Shortcut(a.menuKey("Worktrees", 0, ui.KeyO)).Disabled(a.actionBusy).Chosen() {
 			a.selectWorktreeRow(row.Index)
 			a.openWorktree(worktree)
 		}
@@ -517,7 +517,7 @@ func (a *app) worktreeRowMenu(m *ui.Menu, row ui.ListRow, services ui.Services) 
 		if worktree.Locked {
 			label = "Unlock worktree"
 		}
-		if m.Item(tr(label)).Shortcut(0, ui.KeyL).Disabled(a.actionBusy).Chosen() {
+		if m.Item(tr(label)).Shortcut(a.menuKey("Worktrees", 0, ui.KeyL)).Disabled(a.actionBusy).Chosen() {
 			a.selectWorktreeRow(row.Index)
 			a.toggleWorktreeLock(worktree)
 		}
@@ -543,11 +543,11 @@ func (a *app) worktreeRowMenu(m *ui.Menu, row ui.ListRow, services ui.Services) 
 			a.selectWorktreeRow(row.Index)
 			a.openSelectedWorktreeMoveForm()
 		}
-		if m.Item(tr("Remove worktree")).Shortcut(0, ui.KeyD).Disabled(a.actionBusy).Chosen() {
+		if m.Item(tr("Remove worktree")).Shortcut(a.menuKey("Worktrees", 0, ui.KeyD)).Disabled(a.actionBusy).Chosen() {
 			a.selectWorktreeRow(row.Index)
 			a.confirmDeleteWorktree(worktree)
 		}
-		if m.Item(tr("Force remove worktree")).Shortcut(ui.Shift, ui.KeyD).Disabled(a.actionBusy).Chosen() {
+		if m.Item(tr("Force remove worktree")).Shortcut(a.menuKey("Worktrees", ui.Shift, ui.KeyD)).Disabled(a.actionBusy).Chosen() {
 			a.selectWorktreeRow(row.Index)
 			a.confirmRemoveWorktree(worktree, true)
 		}

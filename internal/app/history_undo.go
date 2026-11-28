@@ -158,7 +158,7 @@ func (a *app) offerUndo() {
 	}
 	detail := tr("No recent change can be undone safely. Stage, discard, commit and conflict actions are remembered here.")
 	if !repository.SafetyJournalEnabled() {
-		detail = tr("The safety journal is off, so staging and discarding are not recorded. Turn it on in Settings to use Undo for them.")
+		detail = tr("No recent change can be undone safely. The safety journal is off, so checkout, merge and similar actions are not recorded; Changes-page actions always are.")
 	}
 	a.notify("", tr("Nothing to undo"), detail)
 }

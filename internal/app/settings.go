@@ -112,6 +112,10 @@ type appSettings struct {
 	// EditorKeyBindings replaces a command's default keyboard shortcuts
 	// when its ID is present. An empty slice explicitly unassigns it.
 	EditorKeyBindings map[string][]string `json:"editorKeyBindings,omitempty"`
+	// KeyBindings replaces the keys of a Git or diff action, by the id the
+	// keyboard command table gives it. An action that is absent keeps its
+	// default key; an empty list leaves it without one.
+	KeyBindings map[string][]string `json:"keyBindings,omitempty"`
 	// SearchExcludedDirectories contains folder names skipped by workspace
 	// content search. Nil in an older settings file selects the
 	// defaults; a saved empty slice deliberately disables every exclusion.
@@ -671,10 +675,10 @@ var themeNames = []string{
 	"Catppuccin Latte",
 	"Gruvbox Light",
 	"Catppuccin Frappé",
-	"Everforest Dark",
 	"Nord",
 	"One Dark",
 	"Dracula",
+	"Everforest Dark",
 	"Catppuccin Macchiato",
 	"Gruvbox Dark",
 	"Solarized Dark",
@@ -837,12 +841,12 @@ var themeChoices = map[string]themeChoice{
 	}},
 	"Everforest Dark": {build: func() *ui.Theme {
 		return palette(ui.DarkTheme(), paletteColors{
-			background: "#2d353b", surface: "#343f44", surfaceHover: "#3d484d",
-			surfacePressed: "#475258", border: "#4f585e", text: "#d3c6aa",
-			textMuted: "#9da9a0", accent: "#7fbbb3", accentHover: "#95cac3",
-			accentPressed: "#649b94", accentText: "#232a2e", danger: "#e67e80",
+			background: "#232a2e", surface: "#2d353b", surfaceHover: "#374145",
+			surfacePressed: "#414b50", border: "#3f494e", text: "#d3c6aa",
+			textMuted: "#859289", accent: "#83c092", accentHover: "#9ad1a8",
+			accentPressed: "#68a078", accentText: "#1e2326", danger: "#e67e80",
 			warning: "#dbbc7f", success: "#a7c080",
-			selection: ui.RGBA(127, 187, 179, 0.28), focus: ui.RGBA(127, 187, 179, 0.55),
+			selection: ui.RGBA(131, 192, 146, 0.24), focus: ui.RGBA(131, 192, 146, 0.55),
 		})
 	}},
 	"Ayu Mirage": {build: func() *ui.Theme {

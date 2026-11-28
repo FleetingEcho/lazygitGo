@@ -137,7 +137,7 @@ func (a *app) tagRowMenu(m *ui.Menu, row ui.ListRow, services ui.Services) {
 	}
 	item := rows[row.Index]
 	tag := item.tag
-	if m.Item(tr("Push tag")).Shortcut(ui.Shift, ui.KeyP).Disabled(a.actionBusy || len(a.snapshot.Remotes) == 0).Chosen() {
+	if m.Item(tr("Push tag")).Shortcut(a.menuKey("Tags", ui.Shift, ui.KeyP)).Disabled(a.actionBusy || len(a.snapshot.Remotes) == 0).Chosen() {
 		a.selectedTag, a.selectedTagRow = item.source, row.Index
 		if a.tagRemote == "" && len(a.snapshot.Remotes) > 0 {
 			a.tagRemote = a.snapshot.Remotes[0].Name
@@ -149,7 +149,7 @@ func (a *app) tagRowMenu(m *ui.Menu, row ui.ListRow, services ui.Services) {
 		a.notifyCopied(services, "tag name", tag.Name)
 	}
 	m.Separator()
-	if m.Item(tr("Delete tag")).Shortcut(0, ui.KeyD).Disabled(a.actionBusy).Chosen() {
+	if m.Item(tr("Delete tag")).Shortcut(a.menuKey("Tags", 0, ui.KeyD)).Disabled(a.actionBusy).Chosen() {
 		a.selectedTag, a.selectedTagRow = item.source, row.Index
 		a.confirmDeleteTag(tag)
 	}

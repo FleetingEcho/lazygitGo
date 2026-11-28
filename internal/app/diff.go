@@ -137,7 +137,7 @@ func (a *app) applyDiffOptions() {
 // liveDiffs are the diff viewers the app keeps, one per section that shows a
 // diff, plus the file-history drawer's.
 func (a *app) liveDiffs() []*editor.DiffState {
-	return []*editor.DiffState{
+	states := []*editor.DiffState{
 		a.diffState,
 		a.stashDiffState,
 		a.commitDiffState,
@@ -148,6 +148,10 @@ func (a *app) liveDiffs() []*editor.DiffState {
 		a.agents.review.diffState,
 		a.changeRequests.diffState,
 	}
+	for _, entry := range a.changeRequests.diffCache {
+		states = append(states, entry.state)
+	}
+	return states
 }
 
 // diffLayoutButton is the icon above a diff that toggles its layout. As the

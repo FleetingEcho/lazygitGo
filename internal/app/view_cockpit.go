@@ -484,7 +484,11 @@ func (a *app) cockpitView(c *ui.Context) {
 	width := a.measuredActionGroupWidth(c, root)
 	a.cockpit.width = width
 	root.Children(func() {
-		scroll := ui.Scroll(c).Grow(1).TrackScroll(&a.cockpit.scroll)
+		scroll := a.keyboardPanelTabs("overview", a.keyboardPane(c, "overview", ui.Scroll(c).Grow(1).TrackScroll(&a.cockpit.scroll)).
+			Focusable().Label(tr("Overview")))
+		if !a.settings.DisableShortcuts {
+			a.registerPaneSideKeys(scroll, "overview")
+		}
 		viewportHeight := scroll.LayoutBounds().H
 		_, windowHeight := c.Size()
 		// Scroll measures its content without a height constraint. Use the

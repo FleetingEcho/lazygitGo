@@ -274,3 +274,6 @@ func hideWindowForTray(window trayCloseWindow) {
 func hideOnCloseEnabled() bool {
 	return trayReady && !quitting && !quitOnClose
 }
+
+// quitApplication ends the program, as the tray's Quit does.
+func quitApplication() { mygo.App.Quit() }

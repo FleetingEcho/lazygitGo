@@ -79,9 +79,15 @@ type changeRequestsUIState struct {
 	showDisplay       bool
 	md                markdown.Options
 	// diffState draws the chosen file with the same viewer History uses.
-	diffState      *editor.DiffState
-	diffKey        string
-	diffErr        string
+	diffState *editor.DiffState
+	diffKey   string
+	diffErr   string
+	// diffCache keeps the viewers of the files looked at just before, newest
+	// first, so going back to one neither parses its patch again nor loses
+	// its scroll position.
+	diffCache []requestDiffEntry
+	// activity is the timeline, sorted once for the detail it was built from.
+	activity       requestActivityCache
 	filesWidth     float32
 	filesCollapsed bool
 	diffMax        bool
@@ -95,6 +101,24 @@ type changeRequestsUIState struct {
 	fileSearchOpen bool
 	// waitingDetails marks a load postponed until the repository's remotes are known.
 	waitingDetails bool
+}
+
+// requestDiffCacheSize bounds how many earlier files keep their viewer.
+const requestDiffCacheSize = 6
+
+type requestDiffEntry struct {
+	key   string
+	state *editor.DiffState
+	err   string
+}
+
+// requestActivityCache holds the Activity entries in display order. It is valid
+// while the loaded detail, and whether system events show, stay the same.
+type requestActivityCache struct {
+	valid   bool
+	token   uint64
+	system  bool
+	entries []forge.Discussion
 }
 
 type forgeCommandSession interface {
@@ -135,6 +159,7 @@ func (a *app) resetChangeRequests() {
 	a.changeRequests.facetsLoading = false
 	a.changeRequests.facetsToken++
 	a.changeRequests.diffState, a.changeRequests.diffKey, a.changeRequests.diffErr = nil, "", ""
+	a.changeRequests.diffCache = nil
 	a.resetChangeRequestDetail()
 }
 
@@ -214,15 +239,15 @@ func (a *app) loadMoreChangeRequests() {
 	go func() {
 		defer a.recoverBackground()
 		items, err := client.Search(ctx, query, changeRequestPage)
-		a.update(func() {
+		a.updateChanged(func() bool {
 			if token != a.changeRequests.token || generation != a.generation {
-				return
+				return false
 			}
 			cr := &a.changeRequests
 			cr.loadingMore = false
 			if err != nil {
 				cr.moreErr = changeRequestErrorMessage(err)
-				return
+				return true
 			}
 			seen := make(map[string]bool, len(cr.items))
 			for _, item := range cr.items {
@@ -235,6 +260,7 @@ func (a *app) loadMoreChangeRequests() {
 			}
 			cr.page = query.Page
 			cr.more = len(items) >= changeRequestPage
+			return true
 		})
 	}()
 }
@@ -286,9 +312,9 @@ func (a *app) refreshChangeRequests() {
 			}
 		}
 		caps, capsErr := client.Capabilities(ctx)
-		a.update(func() {
+		a.updateChanged(func() bool {
 			if token != a.changeRequests.token || generation != a.generation {
-				return
+				return false
 			}
 			a.changeRequests.readOnly = capsErr == nil && !caps.CanWrite
 			if provider != "" {
@@ -298,7 +324,7 @@ func (a *app) refreshChangeRequests() {
 			a.changeRequests.loaded = true
 			if err != nil {
 				a.failChangeRequests(err)
-				return
+				return true
 			}
 			a.changeRequests.items = items
 			a.changeRequests.page = 1
@@ -318,6 +344,7 @@ func (a *app) refreshChangeRequests() {
 			if a.changeRequests.selected >= 0 && a.changeRequests.selected < len(items) {
 				a.loadChangeRequestDetail(items[a.changeRequests.selected], false)
 			}
+			return true
 		})
 	}()
 }
@@ -440,16 +467,17 @@ func (a *app) loadChangeRequestDetail(item forge.ChangeRequest, force bool) {
 	go func() {
 		defer a.recoverBackground()
 		detail, err := client.Get(ctx, item)
-		a.update(func() {
+		a.updateChanged(func() bool {
 			if token != a.changeRequests.detailToken || generation != a.generation || a.changeRequests.detailFor != key {
-				return
+				return false
 			}
 			a.changeRequests.detailLoading = false
 			if err != nil {
 				a.changeRequests.detailErr = safeError(err)
-				return
+				return true
 			}
 			a.changeRequests.detail = &detail
+			return true
 		})
 	}()
 }
@@ -475,18 +503,18 @@ func (a *app) beginChangeRequestMutation(mutation forge.Mutation) {
 	go func() {
 		defer a.recoverBackground()
 		err := client.Mutate(ctx, item, mutation)
-		a.update(func() {
+		a.updateChanged(func() bool {
 			if token != a.changeRequests.mutationToken || generation != a.generation {
-				return
+				return false
 			}
 			a.changeRequests.mutationBusy = false
 			selected, selectedOK := a.selectedChangeRequest()
 			if !selectedOK || changeRequestKey(selected) != key {
-				return
+				return true
 			}
 			if err != nil {
 				a.changeRequests.mutationErr = safeError(err)
-				return
+				return true
 			}
 			switch mutation.Kind {
 			case forge.MutationComment:
@@ -499,6 +527,7 @@ func (a *app) beginChangeRequestMutation(mutation forge.Mutation) {
 				a.changeRequests.lineDraft = ""
 			}
 			a.loadChangeRequestDetail(item, true)
+			return true
 		})
 	}()
 }
@@ -1302,6 +1331,19 @@ func (a *app) requestDiffState(item forge.ChangeRequest, file forge.ChangedFile)
 	if state.diffKey == key {
 		return state.diffState
 	}
+	if state.diffKey != "" {
+		state.diffCache = append([]requestDiffEntry{{state.diffKey, state.diffState, state.diffErr}}, state.diffCache...)
+		if len(state.diffCache) > requestDiffCacheSize {
+			state.diffCache = state.diffCache[:requestDiffCacheSize]
+		}
+	}
+	for i, entry := range state.diffCache {
+		if entry.key == key {
+			state.diffCache = append(state.diffCache[:i:i], state.diffCache[i+1:]...)
+			state.diffKey, state.diffState, state.diffErr = key, entry.state, entry.err
+			return entry.state
+		}
+	}
 	state.diffKey, state.diffState, state.diffErr = key, nil, ""
 	built, err := buildDiffState(a.diffLayout(), a.diffWrap, repository.File{Path: file.Path},
 		repository.Diff{Patch: requestFullPatch(file), Kind: "Request"}, repository.DiffOptions{ContextLines: 3})
@@ -1653,13 +1695,17 @@ var (
 	activityLabelNote = regexp.MustCompile(`^(added|removed)\s+(?:~\d+[\s,]*(?:and\s+)?)+\s*labels?`)
 )
 
-// changeRequestDiscussions is GitLab's Activity: system events and discussion
-// threads on one timeline, oldest first.
-func (a *app) changeRequestDiscussions(c *ui.Context, detail forge.Detail) {
-	theme := c.Theme()
+// requestActivityEntries are the timeline entries, oldest first. The filter and
+// sort run once per loaded detail instead of on every frame.
+func (a *app) requestActivityEntries(detail forge.Detail) []forge.Discussion {
+	cache := &a.changeRequests.activity
+	system := a.requestPartVisible(requestPartActivity)
+	if cache.valid && cache.token == a.changeRequests.detailToken && cache.system == system {
+		return cache.entries
+	}
 	entries := make([]forge.Discussion, 0, len(detail.Discussions))
 	for _, discussion := range detail.Discussions {
-		if discussion.System && !a.requestPartVisible(requestPartActivity) {
+		if discussion.System && !system {
 			continue
 		}
 		entries = append(entries, discussion)
@@ -1668,6 +1714,15 @@ func (a *app) changeRequestDiscussions(c *ui.Context, detail forge.Detail) {
 		x, y := entries[i].CreatedAt, entries[j].CreatedAt
 		return !x.IsZero() && !y.IsZero() && x.Before(y)
 	})
+	*cache = requestActivityCache{valid: true, token: a.changeRequests.detailToken, system: system, entries: entries}
+	return entries
+}
+
+// changeRequestDiscussions is GitLab's Activity: system events and discussion
+// threads on one timeline, oldest first.
+func (a *app) changeRequestDiscussions(c *ui.Context, detail forge.Detail) {
+	theme := c.Theme()
+	entries := a.requestActivityEntries(detail)
 	ui.Text(c, tr("Activity")).FontSize(theme.FontSize + 4).Bold()
 	if len(entries) == 0 {
 		ui.Text(c, tr("No discussions yet")).TextColor(theme.TextMuted)

@@ -13,6 +13,9 @@ import (
 type keyBinding struct {
 	keys  string
 	label string
+	// id names a customizable action (see keyCommandRefs); it is empty for
+	// the keys the window keeps for itself.
+	id string
 }
 
 // keyBindingGroup keeps the reference readable by naming the part of the
@@ -28,70 +31,61 @@ type keyBindingGroup struct {
 // its parts: the gestures that work everywhere, the window-wide navigation,
 // then each workspace section, and finally the forms.
 func keyBindingGroups(customCommands ...customCommandSetting) []keyBindingGroup {
+	return keyBindingGroupsFor(defaultKeyResolution(), customCommands)
+}
+
+// keyBindingGroupsFor is keyBindingGroups with the keys the user chose.
+func keyBindingGroupsFor(keys keyResolution, customCommands []customCommandSetting) []keyBindingGroup {
 	groups := []keyBindingGroup{
 		{
 			title: "Everywhere",
 			icon:  keyboardIcon,
 			bindings: []keyBinding{
-				{"F1", "Open the complete shortcut list"},
-				{"?", "Show shortcuts for the current page"},
-				{"Ctrl+,", "Open settings"},
-				{":", "Run a one-off shell command"},
-				{"Cmd/Ctrl+Shift+P", "Open Command Palette"},
-				{"Cmd/Ctrl+Shift+A", "Open Activity Center"},
-				{"Ctrl+L", "Show the command log"},
-				{"Ctrl+` / Ctrl+~", "Toggle the terminal"},
-				{"Ctrl+F", "Search the active terminal"},
-				{"F5", "Refresh the repository"},
-				{"/", "Search the active panel"},
-				{"F3 / Shift+F3", "Move to the next / previous quick-search result"},
-				{"Ctrl+Z", "Undo the latest eligible Git operation"},
-				{"Ctrl+Shift+Z", "Redo the latest undone Git operation"},
-				{"Tab / Shift+Tab", "Move between panels"},
-				{"F6 / Shift+F6", "Move between panels"},
-				{"j / k", "Move through a list"},
-				{"Shift+F10", "Open the selected item’s context menu"},
-				{"Escape", "Close a dialog or cancel the current step"},
+				{keys: "Cmd/Ctrl+Shift+P", label: "Open Command Palette"},
+				{keys: "Cmd/Ctrl+Shift+A", label: "Open Activity Center"},
+				{keys: "Ctrl+` / Ctrl+~", label: "Toggle the terminal"},
+				{keys: "Ctrl+F", label: "Search the active terminal"},
+				{keys: "Tab / Shift+Tab", label: "Move between panels"},
+				{keys: "j / k", label: "Move through a list"},
+				{keys: "Shift+F10", label: "Open the selected item’s context menu"},
+				{keys: "Escape", label: "Close a dialog or cancel the current step"},
 			},
 		},
 		{
 			title: "Tabs",
 			icon:  newWindowIcon,
 			bindings: []keyBinding{
-				{"Cmd/Ctrl+T", "Open a new tab or the picker"},
-				{"Cmd/Ctrl+W", "Close the active tab"},
-				{"Ctrl+Tab", "Switch to the next tab"},
-				{"Ctrl+Shift+Tab", "Switch to the previous tab"},
+				{keys: "Cmd/Ctrl+T", label: "Open a new tab or the picker"},
+				{keys: "Cmd/Ctrl+W", label: "Close the active tab"},
+				{keys: "Ctrl+Tab", label: "Switch to the next tab"},
+				{keys: "Ctrl+Shift+Tab", label: "Switch to the previous tab"},
 			},
 		},
 		{
 			title: "Home",
 			icon:  folderOpenIcon,
 			bindings: []keyBinding{
-				{"C", "Clone a remote repository"},
-				{"Escape", "Cancel cloning or close the clone form"},
+				{keys: "C", label: "Clone a remote repository"},
+				{keys: "Escape", label: "Cancel cloning or close the clone form"},
 			},
 		},
 		{
 			title: "Workspace",
 			icon:  folderIcon,
 			bindings: []keyBinding{
-				{"1 – 9", "Switch to a workspace section"},
-				{"0", "Switch to the last section"},
-				{"Up / Down", "Move through a list"},
-				{"Home / End", "Jump to the first or last item"},
-				{"PageUp / PageDown", "Move a page at a time"},
-				{"Enter", "Open the chosen item"},
-				{"W", "Compare two refs"},
-				{"Alt+W", "Ignore or show whitespace-only diff changes"},
-				{"Alt+U", "Cycle ordinary diff context lines"},
+				{keys: "1 – 9", label: "Switch to a workspace section"},
+				{keys: "0", label: "Switch to the last section"},
+				{keys: "Up / Down", label: "Move through a list"},
+				{keys: "Home / End", label: "Jump to the first or last item"},
+				{keys: "PageUp / PageDown", label: "Move a page at a time"},
+				{keys: "Enter", label: "Open the chosen item"},
 			},
 		},
 		{title: "Changes", icon: stageIcon, bindings: []keyBinding{
-			{"F7 / Shift+F7", "Move to the next / previous conflict"},
-			{"Alt+1 / Alt+2", "Keep the current / ancestor conflict hunk"},
-			{"Alt+3 / Alt+4", "Keep the incoming conflict hunk / both hunks"},
-			{"Alt+Z", "Undo the last conflict resolution"},
+			{keys: "F7 / Shift+F7", label: "Move to the next / previous conflict"},
+			{keys: "Alt+1 / Alt+2", label: "Keep the current / ancestor conflict hunk"},
+			{keys: "Alt+3 / Alt+4", label: "Keep the incoming conflict hunk / both hunks"},
+			{keys: "Alt+Z", label: "Undo the last conflict resolution"},
 		}},
 		{title: "History and graph", icon: historyIcon},
 		{title: "Branches", icon: branchesIcon},
@@ -106,16 +100,23 @@ func keyBindingGroups(customCommands ...customCommandSetting) []keyBindingGroup 
 			title: "Forms",
 			icon:  commitIcon,
 			bindings: []keyBinding{
-				{"Tab / Shift+Tab", "Move focus between controls"},
-				{"Enter", "Submit the form"},
-				{"Escape", "Cancel the form"},
+				{keys: "Tab / Shift+Tab", label: "Move focus between controls"},
+				{keys: "Enter", label: "Submit the form"},
+				{keys: "Escape", label: "Cancel the form"},
 			},
 		},
 	}
 	// Operation keys come from the same definitions that dispatch them.
 	replacements := map[string][]keyBinding{}
-	for _, command := range keyboardCommands() {
-		replacements[command.group] = append(replacements[command.group], keyBinding{command.keys, command.label})
+	refs := keyCommandRefs()
+	for i, command := range keyboardCommands() {
+		replacements[command.group] = append(replacements[command.group],
+			keyBinding{keys: keys.keys(refs[i]), label: command.label, id: refs[i].id})
+	}
+	// Window-wide actions come from their own table, in the Everywhere group.
+	for _, ref := range refs[keyRefsGit+len(diffKeyboardCommands()):] {
+		replacements["Everywhere"] = append(replacements["Everywhere"],
+			keyBinding{keys: keys.keys(ref), label: ref.label, id: ref.id})
 	}
 	for i := range groups {
 		if bindings, ok := replacements[groups[i].title]; ok {
@@ -133,10 +134,11 @@ func keyBindingGroups(customCommands ...customCommandSetting) []keyBindingGroup 
 	// Diff selection has its own focused-pane scope. Current-page help changes
 	// Space's label for Custom Patch and hides its commands elsewhere.
 	diffBindings := make([]keyBinding, 0, len(diffKeyboardCommands())+2)
-	for _, command := range diffKeyboardCommands() {
-		diffBindings = append(diffBindings, keyBinding{command.keys, command.label})
+	for i, command := range diffKeyboardCommands() {
+		ref := refs[keyRefsGit+i]
+		diffBindings = append(diffBindings, keyBinding{keys: keys.keys(ref), label: command.label, id: ref.id})
 	}
-	diffBindings = append(diffBindings, keyBinding{"A", "Add hunk"}, keyBinding{"B", "Review Custom Patch"})
+	diffBindings = append(diffBindings, keyBinding{keys: "A", label: "Add hunk"}, keyBinding{keys: "B", label: "Review Custom Patch"})
 	// Remote branches have their own scope rather than acting on the selected remote.
 	groups = append(groups,
 		keyBindingGroup{title: "Remote branches", icon: remotesIcon, bindings: replacements["Remote branches"]},
@@ -150,7 +152,7 @@ func keyBindingGroups(customCommands ...customCommandSetting) []keyBindingGroup 
 			if keys == "" {
 				keys = "menu"
 			}
-			bindings = append(bindings, keyBinding{keys, command.Name})
+			bindings = append(bindings, keyBinding{keys: keys, label: command.Name})
 		}
 		groups = append(groups, keyBindingGroup{title: "Custom commands", icon: commandIcon, bindings: bindings})
 	}
@@ -174,6 +176,9 @@ func (a *app) openCurrentKeybindings() {
 }
 
 func (a *app) closeKeybindings() {
+	a.stopKeyRecording()
+	a.keyEdit.editing = false
+	a.keyEdit.searchByKey, a.keyEdit.searchChord, a.keyEdit.searchLabel = false, "", ""
 	a.keybindingsOpen = false
 	a.keybindingsCurrentOnly = false
 	a.keybindingFilter = ""
@@ -211,15 +216,19 @@ func (a *app) keybindingsModal(c *ui.Context) {
 			// Overlay commands, unlike the window registrations, keep working in
 			// the modal's focus scope. This makes ? and F1 respond immediately
 			// after the dialog's switch re-enables the keyboard.
-			if !a.settings.DisableShortcuts && !c.FocusTakesText() {
-				if a.onOverlayShortcut(back, ui.Shift, ui.KeySlash, shortcut("keybindings/modal-current", "?", tr("Show shortcuts for the current page")), nil) {
-					a.openCurrentKeybindings()
+			if !a.settings.DisableShortcuts && !c.FocusTakesText() && a.keyEdit.idle() {
+				for _, b := range a.keysOf("global/shortcuts-page") {
+					if a.onOverlayShortcut(back, b.mods, b.key, shortcut("keybindings/modal-current", boundKeyLabel(b), tr("Show shortcuts for the current page")), nil) {
+						a.openCurrentKeybindings()
+					}
 				}
-				if a.onOverlayShortcut(back, 0, ui.KeyF1, shortcut("keybindings/modal-all", "F1", tr("Open the complete shortcut list")), nil) {
-					a.openKeybindings()
+				for _, b := range a.keysOf("global/shortcuts-all") {
+					if a.onOverlayShortcut(back, b.mods, b.key, shortcut("keybindings/modal-all", boundKeyLabel(b), tr("Open the complete shortcut list")), nil) {
+						a.openKeybindings()
+					}
 				}
 			}
-			if panel.PressedOutside() || a.onOverlayShortcut(back, 0, ui.KeyEscape, shortcut("keybindings/modal-close", "Escape", tr("Close a dialog or cancel the current step")), nil) {
+			if (a.keyEdit.idle() && panel.PressedOutside()) || a.keyEdit.idle() && a.onOverlayShortcut(back, 0, ui.KeyEscape, shortcut("keybindings/modal-close", "Escape", tr("Close a dialog or cancel the current step")), nil) {
 				a.closeKeybindings()
 			}
 		})
@@ -238,6 +247,7 @@ func (a *app) keybindingsHeader(c *ui.Context) {
 			}
 			ui.Text(c, subtitle).TextColor(theme.TextMuted).FontSize(theme.FontSize - 1)
 		})
+		a.keyEditToggle(c)
 		iconButton(c, "Close keyboard shortcuts", "Escape", closeIcon, false, a.closeKeybindings)
 	})
 }
@@ -246,18 +256,46 @@ func (a *app) keybindingsFilterField(c *ui.Context) {
 	theme := c.Theme()
 	ui.Row(c).AlignItems(ui.Center).Gap(8).Children(func() {
 		ui.Icon(c, searchIcon).FontSize(14).TextColor(theme.TextMuted)
-		ui.TextInput(c, &a.keybindingFilter).
-			Label(tr("Filter shortcuts")).
-			Placeholder(tr("Type to filter shortcuts")).
-			Grow(1)
+		if a.keyEdit.searchByKey {
+			a.keySearchRecorder(c)
+		} else {
+			ui.TextInput(c, &a.keybindingFilter).
+				Label(tr("Filter shortcuts")).
+				Placeholder(tr("Type to filter shortcuts")).
+				Grow(1)
+		}
+		toggle := ui.ButtonBase(c).Padding(6).Radius(theme.Radius).
+			Label(tr("Find a shortcut by pressing it")).Tooltip(tr("Find a shortcut by pressing it"))
+		if a.keyEdit.searchByKey {
+			toggle.Background(theme.Accent.Alpha(0.18))
+		} else if toggle.Hovered() {
+			toggle.Background(theme.SurfaceHover)
+		}
+		toggle.Children(func() { ui.Icon(c, keyboardIcon).FontSize(16).TextColor(theme.Accent) })
+		if toggle.Clicked() {
+			a.keyEdit.searchByKey = !a.keyEdit.searchByKey
+			a.keyEdit.searchChord = ""
+		}
 	})
+	if a.keyEdit.editing {
+		ui.Row(c).AlignItems(ui.Center).Gap(6).Children(func() {
+			ui.Icon(c, infoIcon).FontSize(13).TextColor(theme.TextMuted)
+			ui.Text(c, tr("Click a key to change it; the new key works at once. Backspace clears it, Escape cancels, and a key already in use is refused.")).
+				TextColor(theme.TextMuted).FontSize(theme.FontSize - 1)
+		})
+	}
+	issue := a.keyResolution().issue
+	if issue != nil {
+		ui.Text(c, trf("Some stored shortcuts were ignored: %s", issue.Error())).
+			TextColor(theme.Warning).FontSize(theme.FontSize - 1)
+	}
 }
 
 // visibleKeyBindingGroups keeps ? focused on the current page. Navigation and
 // global commands remain visible because they work alongside its row actions;
 // F1 bypasses this filter and still lists every section.
 func (a *app) visibleKeyBindingGroups() []keyBindingGroup {
-	groups := append(keyBindingGroups(a.settings.CustomCommands...), a.editorShortcutHelpGroup())
+	groups := append(keyBindingGroupsFor(a.keyResolution(), a.settings.CustomCommands), a.editorShortcutHelpGroup())
 	if !a.keybindingsCurrentOnly {
 		return groups
 	}
@@ -290,13 +328,16 @@ func (a *app) visibleKeyBindingGroups() []keyBindingGroup {
 			if group.title == "Everywhere" && a.inlineConflictResultActive() {
 				bindings := group.bindings[:0]
 				for _, binding := range group.bindings {
-					switch binding.keys {
-					case "Ctrl+Shift+Z", "p", "P", "z", "Z":
-						// Result owns its text/hunk history here; Git Operation Redo
-						// and the lower-case Git actions are not registered.
-						continue
-					case "Ctrl+Z":
+					switch {
+					case binding.id == "global/undo":
 						binding.label = "Undo unsaved Result text, or the last hunk resolution when Result has no unsaved edits"
+					case binding.id == "global/redo", binding.id == "git/Everywhere/Pull from the upstream branch",
+						binding.id == "git/Everywhere/Push to the remote",
+						binding.id == "git/Everywhere/Undo the latest eligible Git operation",
+						binding.id == "git/Everywhere/Redo the latest undone Git operation":
+						// Result owns its text/hunk history here; Git Operation Redo
+						// and the Git actions on their own keys are not registered.
+						continue
 					}
 					bindings = append(bindings, binding)
 				}
@@ -309,7 +350,8 @@ func (a *app) visibleKeyBindingGroups() []keyBindingGroup {
 			if group.title == "Diff review" {
 				custom := a.customPatchActive()
 				group.bindings = nil
-				for _, command := range diffKeyboardCommands() {
+				keys := a.keyResolution()
+				for i, command := range diffKeyboardCommands() {
 					if command.selection && !a.keyboardDiffCanSelect || command.changesHunk && !a.keyboardDiffCanMutateHunks {
 						continue
 					}
@@ -317,10 +359,11 @@ func (a *app) visibleKeyBindingGroups() []keyBindingGroup {
 					if custom && command.key == ui.KeySpace {
 						label = "Add selected lines"
 					}
-					group.bindings = append(group.bindings, keyBinding{command.keys, label})
+					ref := keyCommandRefs()[keyRefsGit+i]
+					group.bindings = append(group.bindings, keyBinding{keys: keys.keys(ref), label: label, id: ref.id})
 				}
 				if custom {
-					group.bindings = append(group.bindings, keyBinding{"A", "Add hunk"}, keyBinding{"B", "Review Custom Patch"})
+					group.bindings = append(group.bindings, keyBinding{keys: "A", label: "Add hunk"}, keyBinding{keys: "B", label: "Review Custom Patch"})
 				}
 			}
 			visible = append(visible, group)
@@ -338,6 +381,15 @@ func (a *app) keybindingsBody(c *ui.Context) {
 	ui.Column(c).FillWidth().Gap(14).Children(func() {
 		for _, group := range a.visibleKeyBindingGroups() {
 			matches := matchingKeyBindings(group, filter)
+			if a.keyEdit.searchByKey && a.keyEdit.searchChord != "" {
+				pressed := make([]keyBinding, 0, len(matches))
+				for _, binding := range matches {
+					if bindingHasChord(binding.keys, a.keyEdit.searchChord) {
+						pressed = append(pressed, binding)
+					}
+				}
+				matches = pressed
+			}
 			if len(matches) == 0 {
 				continue
 			}
@@ -424,17 +476,34 @@ func matchingKeyBindings(group keyBindingGroup, filter string) []keyBinding {
 // keyBindingRow is one shortcut: its keys in a chip, then what they do.
 func (a *app) keyBindingRow(c *ui.Context, binding keyBinding) {
 	theme := c.Theme()
+	if ref, ok := keyCommandRefByID(binding.id); ok && a.keyEdit.editing {
+		a.keyBindingEditRow(c, ref, binding)
+		return
+	}
 	ui.Row(c).AlignItems(ui.Center).Gap(12).Padding(4, 6).Children(func() {
 		if binding.keys == "" {
 			ui.Icon(c, questionIcon).FontSize(14).TextColor(theme.Accent)
 			ui.Text(c, tr(binding.label)).TextColor(theme.TextMuted).Grow(1)
 			return
 		}
-		ui.Box(c).Width(150).Padding(3, 8).Radius(theme.Radius-1).
-			Background(theme.Surface).Border(1, theme.Border).Children(func() {
-			ui.Text(c, binding.keys).FontSize(theme.FontSize - 1).
-				TextColor(theme.Accent).SingleLine()
+		// While customizing, the keys the window still keeps for itself are
+		// dimmed, and spaced like the rows that can change.
+		fixed := a.keyEdit.editing && binding.id == ""
+		chip := ui.Box(c).Width(150).Padding(3, 8).Radius(theme.Radius-1).
+			Background(theme.Surface).Border(1, theme.Border)
+		if fixed {
+			chip.Tooltip(tr("This key is built in and cannot be changed yet"))
+		}
+		chip.Children(func() {
+			if fixed {
+				keyChipTextColor(c, binding.keys, theme.TextMuted)
+			} else {
+				keyChipText(c, binding.keys)
+			}
 		})
+		if a.keyEdit.editing {
+			ui.Box(c).Width(2 * 28).MinWidth(2 * 28).Height(28)
+		}
 		ui.Text(c, tr(binding.label)).TextColor(theme.TextMuted).Grow(1)
 	})
 }
@@ -443,8 +512,227 @@ func (a *app) keybindingsFooter(c *ui.Context) {
 	ui.Row(c).AlignItems(ui.Center).Gap(10).Children(func() {
 		a.hotkeysSwitch(c)
 		ui.Box(c).Grow(1)
+		if a.keyEdit.editing {
+			restore := ui.Button(c, "").Gap(6).Label(tr("Restore all defaults")).
+				Tooltip(tr("Remove every customized key and use the defaults again")).
+				Disabled(len(a.settings.KeyBindings) == 0)
+			restore.Children(func() {
+				ui.Icon(c, revertIcon).FontSize(14)
+				ui.Text(c, tr("Restore defaults"))
+			})
+			if restore.Clicked() {
+				a.restoreCommandKeys(c)
+			}
+		}
 		if ui.PrimaryButton(c, tr("Done")).Clicked() {
 			a.closeKeybindings()
 		}
 	})
+}
+
+// keyBindingEditRow is one customizable action while the dialog is in its
+// customizing mode. The key to record sits where the chip does, so the
+// descriptions stay in one column; the small buttons follow the description.
+func (a *app) keyBindingEditRow(c *ui.Context, ref keyCommandRef, binding keyBinding) {
+	theme := c.Theme()
+	c.Key("key-edit:" + ref.id)
+	bound := a.keysOf(ref.id)
+	refused := a.keyEdit.errID == ref.id && a.keyEdit.err != ""
+	ui.Column(c).FillWidth().Gap(2).Children(func() {
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(12).Padding(2, 6).Children(func() {
+			if a.keyEdit.recording == ref.id {
+				a.keySlotRecorder(c, ref, 0, refused)
+			} else {
+				text := tr("Not set")
+				if len(bound) > 0 {
+					text = keyDefinitionChord(ref, bound[0])
+				}
+				borderColor := theme.Border
+				if refused {
+					borderColor = theme.Danger
+				}
+				button := ui.ButtonBase(c).Width(keySlotWidth).MinWidth(keySlotWidth).Height(30).Gap(6).Padding(3, 8).
+					Radius(theme.Radius-1).Background(theme.Surface).Border(1, borderColor).
+					Label(trf("Record shortcut for %s", tr(ref.label))).Tooltip(tr("Click, then press a shortcut"))
+				if button.Hovered() {
+					button.Background(theme.SurfaceHover)
+				}
+				button.Children(func() {
+					ui.Icon(c, keyboardIcon).FontSize(12).TextColor(theme.TextMuted)
+					keyChipText(c, text).Ellipsis("…").Grow(1)
+				})
+				if button.Clicked() {
+					a.beginKeyRecording(ref, 0)
+				}
+			}
+			keyActionCell(c, func() {
+				flatIconButton(c, trf("Clear %s shortcut", tr(ref.label)), "Remove this key so the action has none", trashIcon, 13, 4,
+					len(bound) == 0, func() { a.setCommandKey(c, ref, 0, nil) })
+			})
+			keyActionCell(c, func() {
+				if _, customized := a.settings.KeyBindings[ref.id]; customized {
+					flatIconButton(c, trf("Reset %s shortcuts", tr(ref.label)), "Restore this action's default shortcuts", revertIcon, 13, 4, false, func() {
+						a.resetCommandKey(c, ref)
+					})
+				}
+			})
+			ui.Text(c, tr(binding.label)).TextColor(theme.TextMuted).Grow(1).SingleLine().Ellipsis("…")
+		})
+		if refused {
+			ui.Text(c, a.keyEdit.err).TextColor(theme.Danger).FontSize(theme.FontSize-1).Padding(0, 6, 4)
+		}
+	})
+}
+
+// keySlotWidth fits the longest chord and the recording prompt.
+const keySlotWidth = 150
+
+func (a *app) keySlotRecorder(c *ui.Context, ref keyCommandRef, slot int, refused bool) {
+	theme := c.Theme()
+	border := theme.Accent
+	if refused {
+		border = theme.Danger
+	}
+	input := ui.ButtonBase(c).Width(keySlotWidth).MinWidth(keySlotWidth).Height(30).Gap(5).Padding(2, 7).
+		AutoFocus().Border(1, border).Radius(theme.Radius).Background(border.Alpha(0.09)).
+		Label(trf("Record shortcut for %s", tr(ref.label))).
+		Tooltip(tr("Escape cancels; Backspace clears this shortcut"))
+	input.Children(func() {
+		ui.Icon(c, keyboardIcon).FontSize(12).TextColor(theme.Accent)
+		ui.Text(c, tr("Press a shortcut")).FontSize(theme.FontSize - 1).TextColor(theme.TextMuted).
+			Grow(1).SingleLine().Ellipsis("…")
+	})
+	input.HandleInput(func(event ui.InputEvent) bool {
+		return a.keyCaptureEvent(c, ref, slot, event)
+	})
+}
+
+// keyChipText draws a key in its chip. A single letter is easy to misread at
+// the usual size, so it is drawn larger, and a capital (Shift and the letter)
+// in bold, so p and P cannot be mistaken for each other.
+func keyChipText(c *ui.Context, text string) ui.Element {
+	return keyChipTextColor(c, text, c.Theme().Accent)
+}
+
+func keyChipTextColor(c *ui.Context, text string, color ui.Color) ui.Element {
+	theme := c.Theme()
+	size := theme.FontSize - 1
+	letter := len(text) == 1 && (text[0] >= 'a' && text[0] <= 'z' || text[0] >= 'A' && text[0] <= 'Z')
+	if letter {
+		size = theme.FontSize + 1
+	}
+	e := ui.Text(c, text).FontSize(size).TextColor(color).SingleLine()
+	if letter && text[0] <= 'Z' {
+		e.Bold()
+	}
+	return e
+}
+
+// keyActionCell gives a row's small buttons a fixed width, so the key boxes of
+// rows with and without them line up.
+func keyActionCell(c *ui.Context, content func()) {
+	ui.Row(c).Width(28).MinWidth(28).Height(28).Justify(ui.Center).AlignItems(ui.Center).Children(content)
+}
+
+// keyEditToggle is the header button that turns customizing on and off, so a
+// key is never changed by an accidental click while reading the list.
+func (a *app) keyEditToggle(c *ui.Context) {
+	theme := c.Theme()
+	label := tr("Customize keys")
+	if a.keyEdit.editing {
+		label = tr("Finish customizing")
+	}
+	button := ui.ButtonBase(c).Padding(6).Radius(theme.Radius).Label(label).Tooltip(label)
+	if a.keyEdit.editing {
+		button.Background(theme.Accent.Alpha(0.18))
+	} else if button.Hovered() {
+		button.Background(theme.SurfaceHover)
+	}
+	button.Children(func() {
+		ui.Icon(c, editIcon).FontSize(16).TextColor(theme.Accent)
+	})
+	if button.Clicked() {
+		a.keyEdit.editing = !a.keyEdit.editing
+		a.stopKeyRecording()
+	}
+}
+
+// keySearchRecorder is the filter while it waits for a key press: the keys
+// pressed become the filter, so a shortcut can be found by its keys and not
+// only by its words.
+func (a *app) keySearchRecorder(c *ui.Context) {
+	theme := c.Theme()
+	text := tr("Press the shortcut you are looking for")
+	color := theme.TextMuted
+	if a.keyEdit.searchLabel != "" {
+		text, color = a.keyEdit.searchLabel, theme.Accent
+	}
+	input := ui.ButtonBase(c).Height(32).Gap(6).Padding(3, 10).Grow(1).AutoFocus().
+		Border(1, theme.Accent).Radius(theme.Radius).Background(theme.Accent.Alpha(0.09)).
+		Label(tr("Find a shortcut by pressing it")).Tooltip(tr("Escape stops searching by key; Backspace clears the keys"))
+	input.Children(func() {
+		ui.Icon(c, keyboardIcon).FontSize(13).TextColor(theme.Accent)
+		ui.Text(c, text).TextColor(color).SingleLine().Ellipsis("…").Grow(1)
+	})
+	input.HandleInput(func(event ui.InputEvent) bool {
+		if event.Kind == ui.InputText || event.Kind == ui.InputCompose || event.Kind == ui.InputCommand {
+			return true
+		}
+		if event.Kind != ui.InputKeyDown {
+			return false
+		}
+		if event.Repeat {
+			return true
+		}
+		key := event.Key
+		if key == ui.KeyUnknown {
+			key = event.PhysicalKey
+		}
+		switch {
+		case key == ui.KeyUnknown:
+			return true
+		case key == ui.KeyEscape && event.Mods == 0:
+			a.keyEdit.searchByKey, a.keyEdit.searchChord, a.keyEdit.searchLabel = false, "", ""
+			return true
+		case key == ui.KeyBackspace && event.Mods == 0:
+			a.keyEdit.searchChord, a.keyEdit.searchLabel = "", ""
+			return true
+		case key == ui.KeyTab && event.Mods == 0:
+			return false
+		}
+		b := boundKey{event.Mods, key}
+		a.keyEdit.searchChord, a.keyEdit.searchLabel = normalizeChord(boundKeyLabel(b)), boundKeyLabel(b)
+		return true
+	})
+}
+
+// normalizeChord puts a key's spelling in one form, so the keys pressed can be
+// compared with the ones the list shows: a letter keeps its case (p and P are
+// different keys), Shift and a letter is the capital, and the rest ignores case.
+func normalizeChord(text string) string {
+	text = strings.TrimSpace(text)
+	text = strings.ReplaceAll(text, "Cmd/Ctrl", "Ctrl")
+	text = strings.ReplaceAll(text, "Cmd", "Ctrl")
+	if len(text) == 1 {
+		return text
+	}
+	if rest, ok := strings.CutPrefix(text, "Shift+"); ok && len(rest) == 1 && rest[0] >= 'A' && rest[0] <= 'Z' {
+		return rest
+	}
+	lower := strings.ToLower(text)
+	if lower == "esc" {
+		return "escape"
+	}
+	return lower
+}
+
+// bindingHasChord reports whether one of the keys a binding is shown with is
+// the chord pressed; a binding lists alternatives separated by " / ".
+func bindingHasChord(keys, chord string) bool {
+	for _, alternative := range strings.Split(keys, " / ") {
+		if normalizeChord(alternative) == chord {
+			return true
+		}
+	}
+	return false
 }

@@ -52,9 +52,8 @@ func (s *gitSession) mutateIndexLocked(ctx context.Context, kind, summary string
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if !SafetyJournalEnabled() {
-		return mutate()
-	}
+	// Staging, unstaging and partial staging are always recorded: the index
+	// holds work that is not in any commit.
 	before, err := s.indexTree()
 	if err != nil {
 		return mutate()

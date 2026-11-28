@@ -199,7 +199,8 @@ func TestStageThatChangesNothingLeavesNoUndoEntry(t *testing.T) {
 	}
 }
 
-func TestStagingIsNotRecordedWhileTheSafetyJournalIsOff(t *testing.T) {
+// Staging is recorded, and can be undone, even with the journal switch off.
+func TestStagingIsStillRecordedWhileTheSafetyJournalIsOff(t *testing.T) {
 	dir, session := richWorkspace(t)
 	previous := SafetyJournalEnabled()
 	SetSafetyJournalEnabled(false)
@@ -207,11 +208,18 @@ func TestStagingIsNotRecordedWhileTheSafetyJournalIsOff(t *testing.T) {
 	if err := session.Stage(context.Background(), fileByPath(t, snapshotFiles(t, session), "new.txt")); err != nil {
 		t.Fatal(err)
 	}
-	if got := operationsOfKind(t, session, OperationStage); len(got) != 0 {
-		t.Fatalf("journal off but a record was written: %#v", got)
+	record := latestOfKind(t, session, OperationStage)
+	if !record.CanUndo() {
+		t.Fatalf("staging cannot be undone with the journal off: %#v", record)
 	}
 	if got := gitOutput(t, dir, "ls-files", "--stage", "--", "new.txt"); got == "" {
 		t.Fatal("staging must still work with the journal off")
+	}
+	if err := session.UndoOperation(context.Background(), record.ID); err != nil {
+		t.Fatalf("undo with the journal off: %v", err)
+	}
+	if got := gitOutput(t, dir, "ls-files", "--stage", "--", "new.txt"); got != "" {
+		t.Fatalf("undo left new.txt staged: %q", got)
 	}
 }
 

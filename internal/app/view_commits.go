@@ -100,14 +100,14 @@ func (a *app) commitRowMenu(m *ui.Menu, commit repository.Commit, services ui.Se
 func (a *app) commitRowMenuWithHistory(m *ui.Menu, commit repository.Commit, services ui.Services, historyEditable bool) {
 	if a.workspaceTab == sectionHistory || a.workspaceTab == sectionGraph {
 		m.Submenu(tr("Custom Patch"), func(sub *ui.Menu) {
-			if sub.Item(tr("Add all files to Custom Patch")).Shortcut(ui.Ctrl, ui.KeyB).Disabled(a.actionBusy).Chosen() {
+			if sub.Item(tr("Add all files to Custom Patch")).Shortcut(a.menuKey("History and graph", ui.Ctrl, ui.KeyB)).Disabled(a.actionBusy).Chosen() {
 				a.beginAddCustomPatchCommit(commit)
 			}
-			if len(a.customPatch.entries) > 0 && sub.Item(tr("Review Custom Patch")).Shortcut(ui.Shift, ui.KeyB).Disabled(a.actionBusy).Chosen() {
+			if len(a.customPatch.entries) > 0 && sub.Item(tr("Review Custom Patch")).Shortcut(a.menuKey("History and graph", ui.Shift, ui.KeyB)).Disabled(a.actionBusy).Chosen() {
 				a.openCustomPatchBuilder()
 			}
 		})
-		if m.Item(tr("Toggle batch selection")).Shortcut(ui.Ctrl, ui.KeySpace).Disabled(a.actionBusy).Chosen() {
+		if m.Item(tr("Toggle batch selection")).Shortcut(a.menuKey("History and graph", ui.Ctrl, ui.KeySpace)).Disabled(a.actionBusy).Chosen() {
 			a.toggleCommitForBatch(commit)
 		}
 		if a.commitSelection[commit.Hash] {
@@ -190,17 +190,17 @@ func (a *app) commitRowMenuWithHistory(m *ui.Menu, commit repository.Commit, ser
 				a.openRebaseWorkspace()
 			}
 			sub.Separator()
-			if sub.Item(tr("Edit commit (pause rebase)")).Shortcut(0, ui.KeyE).Disabled(a.actionBusy).Chosen() {
+			if sub.Item(tr("Edit commit (pause rebase)")).Shortcut(a.menuKey("History and graph", 0, ui.KeyE)).Disabled(a.actionBusy).Chosen() {
 				a.confirmEditCommit(commit)
 			}
 			if sub.Item(tr("Reword commit")).Disabled(a.actionBusy).Chosen() {
 				a.openCommitRewordForm(commit)
 			}
-			if sub.Item(tr("Drop commit")).Shortcut(0, ui.KeyD).Disabled(a.actionBusy).Chosen() {
+			if sub.Item(tr("Drop commit")).Shortcut(a.menuKey("History and graph", 0, ui.KeyD)).Disabled(a.actionBusy).Chosen() {
 				a.confirmDropCommit(commit)
 			}
 			sub.Separator()
-			if sub.Item(tr("Amend with staged changes")).Shortcut(ui.Shift, ui.KeyA).Disabled(a.actionBusy).Chosen() {
+			if sub.Item(tr("Amend with staged changes")).Shortcut(a.menuKey("History and graph", ui.Shift, ui.KeyA)).Disabled(a.actionBusy).Chosen() {
 				a.confirmAmendCommit(commit)
 			}
 			if sub.Item(tr("Create fixup commit from staged changes")).Disabled(a.actionBusy).Chosen() {
@@ -210,17 +210,17 @@ func (a *app) commitRowMenuWithHistory(m *ui.Menu, commit repository.Commit, ser
 				a.confirmApplyFixupCommits(commit)
 			}
 			sub.Separator()
-			if sub.Item(tr("Squash into older commit")).Shortcut(0, ui.KeyS).Disabled(a.actionBusy).Chosen() {
+			if sub.Item(tr("Squash into older commit")).Shortcut(a.menuKey("History and graph", 0, ui.KeyS)).Disabled(a.actionBusy).Chosen() {
 				a.confirmCombineCommit(commit, repository.CombineSquash)
 			}
-			if sub.Item(tr("Fixup into older commit")).Shortcut(0, ui.KeyF).Disabled(a.actionBusy).Chosen() {
+			if sub.Item(tr("Fixup into older commit")).Shortcut(a.menuKey("History and graph", 0, ui.KeyF)).Disabled(a.actionBusy).Chosen() {
 				a.confirmCombineCommit(commit, repository.CombineFixup)
 			}
 			sub.Separator()
-			if sub.Item(tr("Move commit toward HEAD")).Shortcut(ui.Ctrl, ui.KeyK).Disabled(a.actionBusy).Chosen() {
+			if sub.Item(tr("Move commit toward HEAD")).Shortcut(a.menuKey("History and graph", ui.Ctrl, ui.KeyK)).Disabled(a.actionBusy).Chosen() {
 				a.confirmMoveCommit(commit, repository.MoveCommitNewer)
 			}
-			if sub.Item(tr("Move commit toward older history")).Shortcut(ui.Ctrl, ui.KeyJ).Disabled(a.actionBusy).Chosen() {
+			if sub.Item(tr("Move commit toward older history")).Shortcut(a.menuKey("History and graph", ui.Ctrl, ui.KeyJ)).Disabled(a.actionBusy).Chosen() {
 				a.confirmMoveCommit(commit, repository.MoveCommitOlder)
 			}
 		})
@@ -270,13 +270,13 @@ func (a *app) commitRowMenuWithHistory(m *ui.Menu, commit repository.Commit, ser
 			if sub.Item(tr("Mark commit good (bisect)")).Disabled(a.actionBusy).Chosen() {
 				a.confirmBisectMark("good", commit.Hash)
 			}
-			if sub.Item(tr("Mark commit bad (bisect)")).Shortcut(0, ui.KeyB).Disabled(a.actionBusy).Chosen() {
+			if sub.Item(tr("Mark commit bad (bisect)")).Shortcut(a.menuKey("History and graph", 0, ui.KeyB)).Disabled(a.actionBusy).Chosen() {
 				a.confirmBisectMark("bad", commit.Hash)
 			}
-			if sub.Item(tr("Skip commit (bisect)")).Shortcut(0, ui.KeyK).Disabled(a.actionBusy).Chosen() {
+			if sub.Item(tr("Skip commit (bisect)")).Shortcut(a.menuKey("History and graph", 0, ui.KeyK)).Disabled(a.actionBusy).Chosen() {
 				a.confirmBisectMark("skip", commit.Hash)
 			}
-		} else if sub.Item(tr("Start bisect from this commit")).Shortcut(0, ui.KeyB).Disabled(a.actionBusy).Chosen() {
+		} else if sub.Item(tr("Start bisect from this commit")).Shortcut(a.menuKey("History and graph", 0, ui.KeyB)).Disabled(a.actionBusy).Chosen() {
 			a.openBisectStartForm(commit)
 		}
 	})
@@ -289,10 +289,10 @@ func (a *app) commitRowMenuWithHistory(m *ui.Menu, commit repository.Commit, ser
 	}
 	m.Separator()
 	m.Submenu(tr("Compare"), func(sub *ui.Menu) {
-		if sub.Item(tr("Compare commit with HEAD")).Shortcut(0, ui.KeyH).Disabled(a.session == nil).Chosen() {
+		if sub.Item(tr("Compare commit with HEAD")).Shortcut(a.menuKey("History and graph", 0, ui.KeyH)).Disabled(a.session == nil).Chosen() {
 			a.compareCommit(commit, false)
 		}
-		if sub.Item(tr("Compare first parent with commit")).Shortcut(ui.Shift, ui.KeyH).
+		if sub.Item(tr("Compare first parent with commit")).Shortcut(a.menuKey("History and graph", ui.Shift, ui.KeyH)).
 			Disabled(a.session == nil || len(commit.Parents) == 0).Chosen() {
 			a.compareCommit(commit, true)
 		}
